@@ -1,0 +1,11 @@
+{
+  "name": "processor",
+  "description": "Part of the lambda-complex simple example.",
+  "private": true,
+  "version": "0.1.0",
+  "author": "Reason <reason@exratione.com>",
+  "engines": {
+    "node": ">= 0.10"
+  },
+  "dependencies": {}
+}

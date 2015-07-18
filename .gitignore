@@ -1,0 +1,15 @@
+# Sublime Text
+*sublime-*
+
+# Node, NPM
+**/node_modules
+npm*
+
+# TODO lists.
+TODO*
+
+# Built packages.
+build/
+
+# Testing.
+test/scratch

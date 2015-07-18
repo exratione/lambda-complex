@@ -1,0 +1,299 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "mock: 0.1.0",
+  "Parameters": {},
+  "Resources": {
+    "InternalLambdaComplexRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "Path": "/",
+        "Policies": [
+          {
+            "PolicyName": "InternalLambdaComplexRole",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "sqs:DeleteMessage",
+                    "sqs:GetQueueAttributes",
+                    "sqs:ReceiveMessage",
+                    "sqs:SendMessage"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::GetAtt": [
+                        "MessageQueue",
+                        "Arn"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "lambda:InvokeFunction"
+                  ],
+                  "Resource": [
+                    "arn:aws:lambda:us-east-1:*:function:mock-*"
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:GetObject"
+                  ],
+                  "Resource": [
+                    "arn:aws:s3:::lambda-complex/applications/mock/15/arnMap.json"
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                  ],
+                  "Resource": [
+                    "arn:aws:logs:us-east-1:*:*"
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "S3ReadRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "Path": "/",
+        "Policies": [
+          {
+            "PolicyName": "S3ReadRole",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "s3:get*",
+                  "Resource": [
+                    "arn:aws:s3:::exampleBucket1/*",
+                    "arn:aws:s3:::exampleBucket2/*"
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "sqs:DeleteMessage",
+                    "sqs:GetQueueAttributes",
+                    "sqs:ReceiveMessage",
+                    "sqs:SendMessage"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::GetAtt": [
+                        "MessageQueue",
+                        "Arn"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "lambda:InvokeFunction"
+                  ],
+                  "Resource": [
+                    "arn:aws:lambda:us-east-1:*:function:mock-*"
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:GetObject"
+                  ],
+                  "Resource": [
+                    "arn:aws:s3:::lambda-complex/applications/mock/15/arnMap.json"
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                  ],
+                  "Resource": [
+                    "arn:aws:logs:us-east-1:*:*"
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "LambdaComplexCoordinator": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": "lambda-complex",
+          "S3Key": "applications/mock/15/lambdaComplexCoordinator.zip"
+        },
+        "Description": "LambdaComplexCoordinator",
+        "Handler": "index.coordinator",
+        "MemorySize": 128,
+        "Role": {
+          "Fn::GetAtt": [
+            "InternalLambdaComplexRole",
+            "Arn"
+          ]
+        },
+        "Runtime": "nodejs",
+        "Timeout": 300
+      }
+    },
+    "LambdaComplexInvoker": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": "lambda-complex",
+          "S3Key": "applications/mock/15/lambdaComplexInvoker.zip"
+        },
+        "Description": "LambdaComplexInvoker",
+        "Handler": "index.invoker",
+        "MemorySize": 128,
+        "Role": {
+          "Fn::GetAtt": [
+            "InternalLambdaComplexRole",
+            "Arn"
+          ]
+        },
+        "Runtime": "nodejs",
+        "Timeout": 300
+      }
+    },
+    "Message": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": "lambda-complex",
+          "S3Key": "applications/mock/15/message.zip"
+        },
+        "Description": "Message",
+        "Handler": "index.handler",
+        "MemorySize": 128,
+        "Role": {
+          "Fn::GetAtt": [
+            "S3ReadRole",
+            "Arn"
+          ]
+        },
+        "Runtime": "nodejs",
+        "Timeout": 60
+      }
+    },
+    "Invocation": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": "lambda-complex",
+          "S3Key": "applications/mock/15/invocation.zip"
+        },
+        "Description": "Invocation",
+        "Handler": "index.handler",
+        "MemorySize": 128,
+        "Role": {
+          "Fn::GetAtt": [
+            "S3ReadRole",
+            "Arn"
+          ]
+        },
+        "Runtime": "nodejs",
+        "Timeout": 60
+      }
+    },
+    "MessageQueue": {
+      "Type": "AWS::SQS::Queue",
+      "Properties": {
+        "QueueName": "mock-15-MessageQueue",
+        "VisibilityTimeout": 60
+      }
+    }
+  },
+  "Outputs": {
+    "LambdaComplexCoordinatorArn": {
+      "Description": "LambdaComplexCoordinator ARN.",
+      "Value": {
+        "Fn::GetAtt": [
+          "LambdaComplexCoordinator",
+          "Arn"
+        ]
+      }
+    },
+    "LambdaComplexInvokerArn": {
+      "Description": "LambdaComplexInvoker ARN.",
+      "Value": {
+        "Fn::GetAtt": [
+          "LambdaComplexInvoker",
+          "Arn"
+        ]
+      }
+    },
+    "MessageArn": {
+      "Description": "Message ARN.",
+      "Value": {
+        "Fn::GetAtt": [
+          "Message",
+          "Arn"
+        ]
+      }
+    },
+    "InvocationArn": {
+      "Description": "Invocation ARN.",
+      "Value": {
+        "Fn::GetAtt": [
+          "Invocation",
+          "Arn"
+        ]
+      }
+    },
+    "MessageQueueArn": {
+      "Description": "MessageQueue ARN.",
+      "Value": {
+        "Fn::GetAtt": [
+          "MessageQueue",
+          "Arn"
+        ]
+      }
+    }
+  }
+}

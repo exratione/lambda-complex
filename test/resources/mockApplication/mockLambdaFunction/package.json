@@ -1,0 +1,14 @@
+{
+  "name": "mock-lambda-function",
+  "description": "Part of the lambda-complex mock application.",
+  "private": true,
+  "version": "0.1.0",
+  "author": {
+    "name": "Reason",
+    "email": "reason@exratione.com"
+  },
+  "engines": {
+    "node": ">= 0.10"
+  },
+  "dependencies": {}
+}

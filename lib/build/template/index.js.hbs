@@ -1,0 +1,425 @@
+/**
+ * @fileOverview Wrapper for a lambda-complex lambda function.
+ *
+ * This wraps the handle function to interact with the queues.
+ *
+ * We can't expect any particular NPM package other than AWS SDK to be
+ * installed, so we have to do everything the hard way.
+ */
+
+var util = require('util');
+
+// ---------------------------------------------------------------------------
+// The only non-core items that can be required.
+// ---------------------------------------------------------------------------
+
+// Expect lambda-complex application configuration to be placed in _config.js.
+var config = require('./_config');
+// Expect lambda-complex application constants to be placed in _constants.js.
+var constants = require('./_constants');
+// Expect lambda-complex application utilities to be placed in _utilities.js.
+var utilities = require('./_utilities');
+
+// ---------------------------------------------------------------------------
+// Properties.
+// ---------------------------------------------------------------------------
+
+// Holder for functions and properties so that we can expose them for unit
+// testing. Anything under lc should be considered private inner workings.
+var lc = {};
+
+// Exposed for unit testing purposes.
+lc.config = config;
+lc.utilities = utilities;
+
+// Will be set by the handler.
+lc.arnMap = undefined;
+
+// ---------------------------------------------------------------------------
+// Properties derived from template variables.
+// ---------------------------------------------------------------------------
+
+// The lambda function name.
+lc.componentName = '{{{componentName}}}';
+lc.componentsByName = {};
+
+(function () {
+  for (var index = 0, length = config.components.length; index < length; index++) {
+    lc.componentsByName[config.components[index].name] = config.components[index];
+  }
+})();
+
+lc.component = lc.componentsByName[lc.componentName];
+lc.handler = lc.component.lambda.handler;
+lc.handlerFunctionName = utilities.getFunctionNameFromHandle(lc.handler);
+
+// Expect the old export file to have been moved to a new path. We can figure
+// out where from the handle.
+var originalExport = require('./_' + utilities.getFileBaseNameFromHandle(lc.handler));
+
+// ---------------------------------------------------------------------------
+// Functions.
+// ---------------------------------------------------------------------------
+
+/**
+ * Delete a message from the queue. This must be done on completion of
+ * successful processing.
+ *
+ * @param {String} receiptHandle The unique receipt handle provided when the
+ *   message was received.
+ * @param {Function} callback Of the form function (error).
+ */
+lc.deleteMessageFromInputQueue = function (receiptHandle, callback) {
+  utilities.deleteMessage(
+    utilities.getQueueUrl(lc.component.name, lc.arnMap),
+    receiptHandle,
+    callback
+  );
+};
+
+/**
+ * Helper function for sending to one destination.
+ *
+ * @param {Mixed} data The data to be sent.
+ * @param {String} destination The name of the destination Lambda function.
+ * @param {Function} innerCallback Of the form function (error).
+ */
+lc.sendDataToDestination = function (data, destination, callback) {
+  var component = lc.componentsByName[destination];
+
+  if (!component) {
+    return callback(new Error(util.format(
+      'Invalid component specified as destination for result data: %s',
+      destination
+    )));
+  }
+
+  if (component.type === constants.componentType.EVENT_FROM_INVOCATION) {
+    utilities.invoke(
+      utilities.getLambdaFunctionArn(component.name, lc.arnMap),
+      data,
+      callback
+    );
+  }
+  else if (component.type === constants.componentType.EVENT_FROM_MESSAGE) {
+    utilities.sendMessage(
+      utilities.getQueueUrl(component.name, lc.arnMap),
+      data,
+      callback
+    );
+  }
+  else {
+    callback(new Error(util.format(
+      'Cannot send data to component %s as it has an invalid type: %s',
+      destination,
+      component.type
+    )));
+  }
+};
+
+/**
+ * Send on the result if it is present to destinations defined.
+ *
+ * Only the data attribute is actually sent on to the designated destination
+ * Lambda functions.
+ *
+ * @param {Error} error Any Error instance resulting from the function.
+ * @param {Mixed} result The result provided.
+ * @param {Function} callback Of the form function(error).
+ */
+lc.sendData = function (error, result, callback) {
+  var routing = lc.component.routing;
+  var validTypes = ['string', 'function'];
+  var expandedRouting = [];
+
+  // No routing definition, then call back.
+  if (!routing) {
+    return callback();
+  }
+
+  if (!utilities.isArray(routing)) {
+    routing = [routing];
+  }
+
+  // Fill out the expanded routing array with destinations.
+  routing.forEach(function (routingItem) {
+    var routingItemType = typeof routingItem;
+    var fnResult;
+
+    if (
+      // Only strings and functions are valid.
+      (validTypes.indexOf(routingItemType) === -1) ||
+      // Only consider function routing definitions if there is an error here.
+      (error && routingItemType !== 'function')
+    ) {
+      return;
+    }
+
+    if (routingItemType === 'string') {
+      expandedRouting.push({
+        name: routingItem,
+        data: result
+      });
+    }
+
+    if (routingItemType === 'function') {
+      fnResult = routingItem(error, result);
+      if (!utilities.isArray(fnResult)) {
+        fnResult = [fnResult];
+      }
+
+      // Filter out things that don't look right.
+      fnResult = fnResult.filter(function (item) {
+        return item && item.name;
+      });
+
+      expandedRouting = expandedRouting.concat(fnResult);
+    }
+  });
+
+  // If left with no destinations then call back.
+  if (!expandedRouting.length) {
+    return callback();
+  }
+
+  // TODO: too large a set of destinations could cause problems here since this
+  // lot run in parallel.
+  utilities.each(expandedRouting, function (destination, innerCallback) {
+    lc.sendDataToDestination(destination.data, destination.name, innerCallback);
+  }, callback);
+};
+
+/**
+ * Wrap the context functions so that we can clean up after one of the
+ * callbacks is invoked.
+ *
+ * @param {Object} context
+ * @return {Object}
+ */
+lc.wrapContext = function (context) {
+  // Need to keep track in case of multiple callbacks in bad code.
+  var called = false;
+  var wrappedContext = {};
+
+  /**
+   * Helper function to DRY up the code for failure.
+   *
+   * @param {Error} error An Error instance.
+   */
+  function logErrorAndFail (error) {
+    console.error(error);
+    context.fail(error);
+  }
+
+  wrappedContext.getRemainingTimeInMillis = function () {
+    return context.getRemainingTimeInMillis();
+  };
+
+  wrappedContext.succeed = function (result) {
+    if (called) {
+      return;
+    }
+
+    called = true;
+
+    lc.sendData(undefined, result, function (sendError) {
+      if (sendError) {
+        return logErrorAndFail(sendError);
+      }
+
+      // If no receipt handle, then this is either not an eventFromMessage type
+      // component or no message was found in the input queue. In either case
+      // we go straight to context.succeed().
+      if (!wrappedContext.receiptHandle) {
+        return context.succeed(result);
+      }
+
+      // We have a receiptHandle and the message needs deletion on success.
+      lc.deleteMessageFromInputQueue(
+        wrappedContext.receiptHandle,
+        function (deleteError) {
+          if (deleteError) {
+            return logErrorAndFail(deleteError);
+          }
+
+          context.succeed(result);
+        }
+      );
+    });
+  };
+
+  wrappedContext.fail = function (error) {
+    if (called) {
+      return;
+    }
+
+    called = true;
+
+    lc.sendData(error, undefined, function (sendError) {
+      if (sendError) {
+        console.error(sendError);
+        return context.fail(error || sendError);
+      }
+
+      if (error) {
+        console.error(error);
+      }
+      context.fail(error);
+    });
+  };
+
+  wrappedContext.done = function (error, result) {
+    if (called) {
+      return;
+    }
+
+    called = true;
+
+    if (error) {
+      console.error(error);
+    }
+
+    lc.sendData(error, result, function (sendError) {
+      if (sendError) {
+        console.error(sendError);
+        return context.done(error || sendError, result);
+      }
+
+      // If no receipt handle, then this is either not an eventFromMessage type
+      // component or no message was found in the input queue. In either case
+      // we go straight to context.succeed().
+      if (!wrappedContext.receiptHandle) {
+        return context.done(error, result);
+      }
+
+      // We have a receiptHandle and the message needs deletion on success.
+      lc.deleteMessageFromInputQueue(
+        wrappedContext.receiptHandle,
+        function (deleteError) {
+          if (deleteError) {
+            console.error(deleteError);
+          }
+
+          context.done(error || sendError || deleteError, result);
+        }
+      );
+    });
+  };
+
+  return wrappedContext;
+};
+
+/**
+ * Handle the invocation as though this is an Event from Invocation type of
+ * component.
+ *
+ * @param {Object} event
+ * @param {Object} wrappedContext
+ */
+lc.handleAsEventFromInvocationType = function (event, wrappedContext) {
+  originalExport[lc.handlerFunctionName](event, wrappedContext);
+};
+
+/**
+ * Handle the invocation as though this is an Event from Message type of
+ * component.
+ *
+ * This means consuming a message from the queue associated with this component.
+ *
+ * @param {Object} event
+ * @param {Object} wrappedContext
+ */
+lc.handleAsEventFromMessageType = function (event, wrappedContext) {
+  var message;
+
+  utilities.receiveMessage(
+    utilities.getQueueUrl(lc.component.name, lc.arnMap),
+    lc.component.timeout,
+    lc.component.queueWaitTime,
+    function (error, result) {
+      if (error) {
+        return wrappedContext.fail(error);
+      }
+
+      // No message in the queue to process.
+      if (!result) {
+        return wrappedContext.succeed();
+      }
+
+      // A message with bad JSON will clutter up the queue with continual
+      // attempts to process. Probably acceptable if we think of queue backlogs
+      // and error messages in logs as important points of alerting for failure.
+      try {
+        message = JSON.parse(result.message);
+      }
+      catch (jsonError) {
+        return wrappedContext.fail(util.format(
+          'Queue message for component %s contains invalid JSON: %s',
+          lc.component.name,
+          jsonError.stack || jsonError.toString()
+        ));
+      }
+
+      // Stash the message receipt handle for later; we'll need it to delete the
+      // message after successful processing.
+      wrappedContext.receiptHandle = result.receiptHandle;
+
+      // Deliver the message and the wrapped context to the original handle.
+      originalExport[lc.handlerFunctionName](message, wrappedContext);
+    }
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Export the function package and wrapped handle function.
+// ---------------------------------------------------------------------------
+
+// This is exported for testing purposes.
+exports.lc = lc;
+
+// Prevent naming the handle "lc", as that will break everything.
+if (lc.handlerFunctionName === 'lc') {
+  throw new Error('Invalid name for Lambda function handler: lc');
+}
+
+/**
+ * A function to intercept the call and perform necessary tasks.
+ *
+ * @param {Object} event
+ * @param {Object} context
+ */
+exports[lc.handlerFunctionName] = function (event, context) {
+  var wrappedContext = lc.wrapContext(context);
+
+  console.info(
+    util.format(
+      'Invoked handler for application: %s, component: %s, event: ',
+      lc.config.name,
+      lc.component.name
+    ),
+    // In theory this could be large. Better to run it through console than to
+    // try to log the whole thing.
+    event
+  );
+
+  utilities.loadArnMap(config, function (error, arnMap) {
+    if (error) {
+      return wrappedContext.fail(error);
+    }
+
+    lc.arnMap = arnMap;
+
+    if (lc.component.type === constants.componentType.EVENT_FROM_INVOCATION) {
+      return lc.handleAsEventFromInvocationType(event, wrappedContext);
+    }
+    else if (lc.component.type === constants.componentType.EVENT_FROM_MESSAGE) {
+      return lc.handleAsEventFromMessageType(event, wrappedContext);
+    }
+    else {
+      wrappedContext.fail(new Error(util.format(
+        'Unknown component type specified in configuration: %s',
+        lc.component.type
+      )));
+    }
+  });
+};
