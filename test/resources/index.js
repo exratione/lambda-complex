@@ -14,6 +14,7 @@ var _ = require('lodash');
 var index = require('../../index');
 var buildCommon = require('../../lib/build/common');
 var utilities = require('../../lib/shared/utilities');
+var constants = require('../../lib/shared/constants');
 
 // ---------------------------------------------------------------------------
 // Exported functions.
@@ -36,13 +37,25 @@ exports.getMockArnMap = function (config) {
   // Ensure that this includes values for the internal components not specified
   // explicitly in the config.
   _.each(buildCommon.getAllComponents(config), function (component) {
-    prop = utilities.getQueueArnOutputName(component.name);
+    // Queues for event from message type components.
+    if (component.type === constants.componentType.EVENT_FROM_MESSAGE) {
+      prop = utilities.getQueueArnOutputName(component.name);
+      arnMap[prop] = util.format(
+        'arn:aws:sqs:%s:444555666777:%s',
+        config.deployment.region,
+        utilities.getQueueName(component.name)
+      );
+    }
+
+    // Concurrency queues for all components.
+    prop = utilities.getConcurrencyQueueArnOutputName(component.name);
     arnMap[prop] = util.format(
       'arn:aws:sqs:%s:444555666777:%s',
       config.deployment.region,
-      utilities.getQueueName(component.name)
+      utilities.getConcurrencyQueueName(component.name)
     );
 
+    // Lambda functions.
     prop = utilities.getLambdaFunctionArnOutputName(component.name);
     arnMap[prop] = util.format(
       'arn:aws:sqs:%s:444555666777:%s',

@@ -37,7 +37,7 @@ Obviously this is trivial and contrived, but serves to show off the basics:
 * Lambda Complex application configuration and deployment.
 * Lambda functions reading from queues.
 * Lambda function `A` passing data to Lambda function `B` via a queue.
-* Lamdba function `A` directly invoking Lambda function `B` to pass data.
+* Lambda function `A` directly invoking Lambda function `B` to pass data.
 
 A real Lambda Complex application will use these same building blocks, but to a
 more constructive end.

@@ -84,9 +84,9 @@ module.exports = {
        * function invocation to other components based on its contents.
        *
        * Remember that (a) the routing function cannot include any reference to
-       * resources that don't exist in this component Lamdba function, and
+       * resources that don't exist in this component Lambda function, and
        * (b) this config will be included and loaded in other places that don't
-       * have the same set of NPM modules available as this Lamdba function.
+       * have the same set of NPM modules available as this Lambda function.
        *
        * That doesn't matter in this case, but it would if we used require() to
        * load modules.

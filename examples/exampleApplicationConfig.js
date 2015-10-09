@@ -127,7 +127,7 @@ module.exports = {
   // Component definitions each specify the use of one of these roles.
   //
   roles: [
-    // In the rare case that a Lamdba function needs no permissions, it is
+    // In the rare case that a Lambda function needs no permissions, it is
     // possible to assign an empty role. Lambda Complex will add the necessary
     // internal permissions to it, such as queue access and logging.
     {
@@ -161,7 +161,7 @@ module.exports = {
 
   // A component consists of a lambda function package that will be triggered in
   // response to circumstances, such as a message in a queue or the completion
-  // of another Lamdba function.
+  // of another Lambda function.
   //
   // There are several different types of component.
   //

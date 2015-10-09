@@ -1,13 +1,13 @@
 # Lambda Complex
 
-Lamdba Complex is a Node.js framework for applications that run entirely within
-Lamdba, SQS, and other high abstraction layer AWS services. The high points of
+Lambda Complex is a Node.js framework for applications that run entirely within
+Lambda, SQS, and other high abstraction layer AWS services. The high points of
 Lambda Complex:
 
 * Assemble applications from any Node.js Lambda function implementations.
 * Use any NPM module that exports one or more Lambda function handlers, or write
 your own.
-* Configure the Lambda Complex application to pass data between Lamdba function
+* Configure the Lambda Complex application to pass data between Lambda function
 invocations or accept data from SQS queues.
 * Lambda complex applications are deployed as CloudFormation stacks.
 
@@ -16,7 +16,7 @@ Amazon Linux EC2 instance if binary NPM modules are required, and no server
 infrastructure beyond that is needed.
 
 The typical Lambda Complex application consists of a few small Node.js packages
-exposing Lamdba function handlers, and a configuration file to define necessary
+exposing Lambda function handlers, and a configuration file to define necessary
 details such as permissions to access AWS resources. When deployed, the Lambda
 functions interact with other AWS services to, for example, generate content in
 response to SQS messages, or process a workflow in many small steps.
@@ -60,8 +60,13 @@ roles to grant access to AWS resources, and other necessary items.
 
 ### Component
 
-A Lambda Complex component consists of an arbitrary Lambda function
-implementation plus a defined method of passing it data, such as an SQS queue.
+A Lambda Complex component consists of:
+
+* A Lambda function implementation.
+* An SQS queue to measure concurrency.
+* A method of passing data to the Lambda function data, such as an SQS queue.
+* The component definition in the Lambda Complex application configuration file.
+
 The following types of component exist:
 
 #### Event From Message
@@ -93,6 +98,19 @@ operations will be lost when it fails.
 Internal components are built-in Lambda functions that manage the operation of
 a Lambda Complex application, such as responding to queues backlogs.
 
+### Lambda Complex Code Wraps Provided Lambda Function Implementations
+
+Lambda Complex applications can use arbitrary third party Lambda function
+handler implementations, so long as they are Node.js and have a `package.json`
+file, because during deployment those implementations are wrapped in Lambda
+Complex code.
+
+When the component Lambda function is invoked in a deployed Lambda Complex
+application, Lambda Complex code runs first to take care of the necessary
+details - such as retrieving data from an SQS queue, tracking concurrency, and
+so forth. Only then does it pass control to the underlying Lambda function
+handler.
+
 ### Coordinator
 
 The coordinator is a built-in Lambda Complex Lambda function that checks the
@@ -104,8 +122,30 @@ circumstances. E.g. on the arrival of new messages in SQS queues.
 The invoker is a built-in Lambda Complex Lambda function that is used to invoke
 large numbers of other Lambda functions. API calls take time, and a Lambda
 function instance is both time-limited and thread-limited. Therefore invoking
-a very large number of Lamdba function instances requires invoker instances to
-be used.
+a very large number of Lambda function instances requires the creation of
+additional invoker instances to carry out that work.
+
+### Concurrency Queues
+
+Each component is associated with an SQS queue used to measure the number of
+concurrent invocations of the component Lambda function. When the component
+Lambda function is invoked, a message is posted to the queue. That message is
+deleted on completion of the Lambda function, or expires after the Lambda
+function timeout.
+
+Note that queue messages cannot expire more rapidly than 60 seconds, and Lambda
+functions can have shorter timeouts. This shouldn't be too much of an issue
+since Lambda Complex reactions to uncaught exceptions to take the necessary
+actions - it is fairly hard to cause the concurrency message deletion to fail
+to take place.
+
+### ARN Map
+
+During deployment of the CloudFormation stack for a Lambda Complex application,
+a JSON map of the relevant ARNs for queues and Lambda functions is created and
+uploaded to S3. This file is necessary for the Lambda Complex framework code to
+function, and is loaded by every invoked Lambda function before they take
+action.
 
 ## Creating a Lambda Complex Application
 
@@ -113,7 +153,7 @@ be used.
 
 Break up your application functionality into small chunks that can run in
 parallel, and which individually cannot last longer than the Lambda time limit
-(currently 60 seconds). Each of these is a component. Identify the data that
+(currently 300 seconds). Each of these is a component. Identify the data that
 passes from component to component, and points at which flow control decisions
 must be made: route to component `A` versus component `B` based on the data.
 
@@ -162,7 +202,7 @@ new applications.
 
 In a Lambda Complex application, this means the SQS queues that will be used to
 introduce data into the application: the new queues will have different
-identities, and this applications sending to them should be updated.
+identities, and the applications sending to them should be updated.
 
 ### Configure the Coordinator Behavior
 
@@ -313,6 +353,9 @@ take a look at its documentation. In short, the following occurs:
 
 Since the application includes self-invoking Lambda functions, the only sure
 way to shut it down at the present time is to delete the CloudFormation stack.
+Deleting the ARN map file uploaded to S3 during application deployment should
+also shut things down, as without the list of ARNs for application resources
+nothing in Lambda Complex can work.
 
 ### Update a Deployed Application
 

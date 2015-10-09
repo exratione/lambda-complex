@@ -46,6 +46,41 @@
                 {
                   "Effect": "Allow",
                   "Action": [
+                    "sqs:DeleteMessage",
+                    "sqs:GetQueueAttributes",
+                    "sqs:ReceiveMessage",
+                    "sqs:SendMessage"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::GetAtt": [
+                        "LambdaComplexCoordinatorConcurrencyQueue",
+                        "Arn"
+                      ]
+                    },
+                    {
+                      "Fn::GetAtt": [
+                        "LambdaComplexInvokerConcurrencyQueue",
+                        "Arn"
+                      ]
+                    },
+                    {
+                      "Fn::GetAtt": [
+                        "MessageConcurrencyQueue",
+                        "Arn"
+                      ]
+                    },
+                    {
+                      "Fn::GetAtt": [
+                        "InvocationConcurrencyQueue",
+                        "Arn"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
                     "lambda:InvokeFunction"
                   ],
                   "Resource": [
@@ -121,6 +156,41 @@
                     {
                       "Fn::GetAtt": [
                         "MessageQueue",
+                        "Arn"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "sqs:DeleteMessage",
+                    "sqs:GetQueueAttributes",
+                    "sqs:ReceiveMessage",
+                    "sqs:SendMessage"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::GetAtt": [
+                        "LambdaComplexCoordinatorConcurrencyQueue",
+                        "Arn"
+                      ]
+                    },
+                    {
+                      "Fn::GetAtt": [
+                        "LambdaComplexInvokerConcurrencyQueue",
+                        "Arn"
+                      ]
+                    },
+                    {
+                      "Fn::GetAtt": [
+                        "MessageConcurrencyQueue",
+                        "Arn"
+                      ]
+                    },
+                    {
+                      "Fn::GetAtt": [
+                        "InvocationConcurrencyQueue",
                         "Arn"
                       ]
                     }
@@ -247,6 +317,38 @@
         "QueueName": "mock-15-MessageQueue",
         "VisibilityTimeout": 60
       }
+    },
+    "LambdaComplexCoordinatorConcurrencyQueue": {
+      "Type": "AWS::SQS::Queue",
+      "Properties": {
+        "QueueName": "mock-15-LambdaComplexCoordinatorConcurrencyQueue",
+        "VisibilityTimeout": 300,
+        "MessageRetentionPeriod": 300
+      }
+    },
+    "LambdaComplexInvokerConcurrencyQueue": {
+      "Type": "AWS::SQS::Queue",
+      "Properties": {
+        "QueueName": "mock-15-LambdaComplexInvokerConcurrencyQueue",
+        "VisibilityTimeout": 300,
+        "MessageRetentionPeriod": 300
+      }
+    },
+    "MessageConcurrencyQueue": {
+      "Type": "AWS::SQS::Queue",
+      "Properties": {
+        "QueueName": "mock-15-MessageConcurrencyQueue",
+        "VisibilityTimeout": 60,
+        "MessageRetentionPeriod": 60
+      }
+    },
+    "InvocationConcurrencyQueue": {
+      "Type": "AWS::SQS::Queue",
+      "Properties": {
+        "QueueName": "mock-15-InvocationConcurrencyQueue",
+        "VisibilityTimeout": 60,
+        "MessageRetentionPeriod": 60
+      }
     }
   },
   "Outputs": {
@@ -291,6 +393,42 @@
       "Value": {
         "Fn::GetAtt": [
           "MessageQueue",
+          "Arn"
+        ]
+      }
+    },
+    "LambdaComplexCoordinatorConcurrencyQueueArn": {
+      "Description": "LambdaComplexCoordinatorConcurrencyQueue ARN.",
+      "Value": {
+        "Fn::GetAtt": [
+          "LambdaComplexCoordinatorConcurrencyQueue",
+          "Arn"
+        ]
+      }
+    },
+    "LambdaComplexInvokerConcurrencyQueueArn": {
+      "Description": "LambdaComplexInvokerConcurrencyQueue ARN.",
+      "Value": {
+        "Fn::GetAtt": [
+          "LambdaComplexInvokerConcurrencyQueue",
+          "Arn"
+        ]
+      }
+    },
+    "MessageConcurrencyQueueArn": {
+      "Description": "MessageConcurrencyQueue ARN.",
+      "Value": {
+        "Fn::GetAtt": [
+          "MessageConcurrencyQueue",
+          "Arn"
+        ]
+      }
+    },
+    "InvocationConcurrencyQueueArn": {
+      "Description": "InvocationConcurrencyQueue ARN.",
+      "Value": {
+        "Fn::GetAtt": [
+          "InvocationConcurrencyQueue",
           "Arn"
         ]
       }

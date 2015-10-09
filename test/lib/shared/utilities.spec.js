@@ -197,11 +197,35 @@ describe('lib/shared/utilities', function () {
 
   describe('getFullQueueName', function () {
     it('functions correctly', function () {
-      var fullName = utilities.getFullQueueName(componentName, applicationConfig);
+      var fullName = utilities.getFullQueueName(
+        componentName,
+        applicationConfig
+      );
       expect(fullName).to.equal(
         applicationConfig.name + '-' +
         applicationConfig.deployId + '-' +
         utilities.getQueueName(componentName)
+      );
+    });
+  });
+
+  describe('getConcurrencyQueueName', function () {
+    it('functions correctly', function () {
+      var fullName = utilities.getConcurrencyQueueName(componentName);
+      expect(fullName).to.equal(_.capitalize(componentName) + 'ConcurrencyQueue');
+    });
+  });
+
+  describe('getFullConcurrencyQueueName', function () {
+    it('functions correctly', function () {
+      var fullName = utilities.getFullConcurrencyQueueName(
+        componentName,
+        applicationConfig
+      );
+      expect(fullName).to.equal(
+        applicationConfig.name + '-' +
+        applicationConfig.deployId + '-' +
+        utilities.getConcurrencyQueueName(componentName)
       );
     });
   });
@@ -222,11 +246,60 @@ describe('lib/shared/utilities', function () {
     });
   });
 
+  describe('getConcurrencyQueueArnOutputName', function () {
+    it('functions correctly', function () {
+      var fullName = utilities.getConcurrencyQueueArnOutputName(componentName);
+      expect(fullName).to.equal(
+        utilities.getConcurrencyQueueName(componentName) + 'Arn'
+      );
+    });
+  });
+
   describe('getLambdaFunctionArnOutputName', function () {
     it('functions correctly', function () {
       var fullName = utilities.getLambdaFunctionArnOutputName(componentName);
       expect(fullName).to.equal(
         utilities.getLambdaFunctionName(componentName) + 'Arn'
+      );
+    });
+  });
+
+  describe('getQueueArn', function () {
+    it('functions correctly', function () {
+      var arn = utilities.getQueueArn(componentName, arnMap);
+
+      expect(arn).to.be.a('string');
+      expect(arn).to.equal(
+        arnMap[utilities.getQueueArnOutputName(componentName)]
+      );
+    });
+
+    it('returns undefined for non-existing value', function () {
+      expect(utilities.getQueueArn('', arnMap)).to.equal(undefined);
+    });
+  });
+
+  describe('getConcurrencyQueueArn', function () {
+    it('functions correctly', function () {
+      var arn = utilities.getConcurrencyQueueArn(componentName, arnMap);
+
+      expect(arn).to.be.a('string');
+      expect(arn).to.equal(
+        arnMap[utilities.getConcurrencyQueueArnOutputName(componentName)]
+      );
+    });
+
+    it('returns undefined for non-existing value', function () {
+      expect(utilities.getQueueArn('', arnMap)).to.equal(undefined);
+    });
+  });
+
+  describe('sqsUrlFromArn', function () {
+    it('functions correctly', function () {
+      expect(utilities.sqsUrlFromArn(
+        'arn:aws:sqs:us-east-1:444555666777:queuename'
+      )).to.equal(
+        'https://sqs.us-east-1.amazonaws.com/444555666777/queuename'
       );
     });
   });
@@ -244,18 +317,16 @@ describe('lib/shared/utilities', function () {
     });
   });
 
-  describe('getQueueArn', function () {
+  describe('getConcurrencyQueueUrl', function () {
     it('functions correctly', function () {
-      var arn = utilities.getQueueArn(componentName, arnMap);
-
-      expect(arn).to.be.a('string');
-      expect(arn).to.equal(
-        arnMap[utilities.getQueueArnOutputName(componentName)]
+      sandbox.stub(utilities, 'getConcurrencyQueueArn').returns(
+        'arn:aws:sqs:us-east-1:444555666777:queuename'
       );
-    });
 
-    it('returns undefined for non-existing value', function () {
-      expect(utilities.getQueueArn('', arnMap)).to.equal(undefined);
+      var url = utilities.getConcurrencyQueueUrl(componentName, arnMap);
+      expect(url).to.equal(
+        'https://sqs.us-east-1.amazonaws.com/444555666777/queuename'
+      );
     });
   });
 
