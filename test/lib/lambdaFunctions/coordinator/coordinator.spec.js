@@ -66,31 +66,41 @@ describe('lib/lambdaFunctions/coordinator/coordinator', function () {
 
     beforeEach(function () {
       sandbox.stub(console, 'error');
-      sandbox.stub(utilities, 'getQueueAttributes').yields(null, {
-        ApproximateNumberOfMessages: messageCount
-      });
+      sandbox.stub(utilities, 'getQueueMessageCount').yields(null, messageCount);
     });
 
     it('yields expected status object for application config', function (done) {
       coordinator.determineApplicationStatus(function (error, status) {
 
-        sinon.assert.calledOnce(utilities.getQueueAttributes);
+        sinon.assert.callCount(utilities.getQueueMessageCount, 5);
         sinon.assert.calledWith(
-          utilities.getQueueAttributes,
-          utilities.getQueueUrl('message', coordinator.arnMap),
+          utilities.getQueueMessageCount,
+          sinon.match.string,
           sinon.match.func
         );
 
         expect(status).to.eql({
           components: [
             {
+              name: constants.coordinator.NAME,
+              type: constants.componentType.INTERNAL,
+              concurrency: messageCount
+            },
+            {
+              name: constants.invoker.NAME,
+              type: constants.componentType.INTERNAL,
+              concurrency: messageCount
+            },
+            {
               name: 'message',
               type: 'eventFromMessage',
+              concurrency: messageCount,
               queuedMessageCount: messageCount
             },
             {
               name: 'invocation',
-              type: 'eventFromInvocation'
+              type: 'eventFromInvocation',
+              concurrency: messageCount
             }
           ]
         });
@@ -99,21 +109,33 @@ describe('lib/lambdaFunctions/coordinator/coordinator', function () {
       });
     });
 
-    it('getQueueAttributes error is logged and message count is 0', function (done) {
-      utilities.getQueueAttributes.yields(new Error());
+    it('getQueueAttributes error is logged and message counts are null', function (done) {
+      utilities.getQueueMessageCount.yields(new Error());
 
       coordinator.determineApplicationStatus(function (error, status) {
-        sinon.assert.calledOnce(console.error);
+        sinon.assert.callCount(console.error, 5);
         expect(status).to.eql({
           components: [
             {
+              name: constants.coordinator.NAME,
+              type: constants.componentType.INTERNAL,
+              concurrency: null
+            },
+            {
+              name: constants.invoker.NAME,
+              type: constants.componentType.INTERNAL,
+              concurrency: null
+            },
+            {
               name: 'message',
               type: 'eventFromMessage',
-              queuedMessageCount: 0
+              concurrency: null,
+              queuedMessageCount: null
             },
             {
               name: 'invocation',
-              type: 'eventFromInvocation'
+              type: 'eventFromInvocation',
+              concurrency: null
             }
           ]
         });

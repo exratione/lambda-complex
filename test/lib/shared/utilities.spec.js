@@ -608,7 +608,8 @@ describe('lib/shared/utilities', function () {
 
     beforeEach(function () {
       attributes = {
-        ApproximateNumberOfMessages: 0
+        // These things are returned as strings, not numbers.
+        ApproximateNumberOfMessages: '0'
       };
       queueUrl = 'queueUrl';
 
@@ -658,6 +659,40 @@ describe('lib/shared/utilities', function () {
         );
 
         expect(result).to.eql(attributes);
+        done(error);
+      });
+    });
+  });
+
+  describe('getQueueMessageCount', function () {
+    var attributes;
+    var queueUrl;
+    var messageCount;
+
+    beforeEach(function () {
+      messageCount = 0;
+      attributes = {
+        // These things are returned as strings, not numbers.
+        ApproximateNumberOfMessages: '' + messageCount
+      };
+      queueUrl = 'queueUrl';
+
+      sandbox.stub(utilities, 'getQueueAttributes').yields(
+        undefined,
+        attributes
+      );
+    });
+
+    it('performs correctly', function (done) {
+      utilities.getQueueMessageCount(queueUrl, function (error, count) {
+        sinon.assert.calledWith(
+          utilities.getQueueAttributes,
+          queueUrl,
+          sinon.match.func
+        );
+
+        expect(count).to.equal(messageCount);
+
         done(error);
       });
     });

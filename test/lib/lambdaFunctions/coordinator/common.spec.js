@@ -117,7 +117,15 @@ describe('lib/lambdaFunctions/coordinator/common', function () {
       clock.tick(1);
       expect(calledBack).to.equal(true);
     });
+  });
 
+  describe('getAllComponents', function () {
+    it('functions correctly', function () {
+      expect(common.getAllComponents(applicationConfig)).to.eql([
+        constants.coordinator.COMPONENT,
+        constants.invoker.COMPONENT
+      ].concat(applicationConfig.components))
+    });
   });
 
   describe('executeConcurrently', function () {
@@ -216,6 +224,13 @@ describe('lib/lambdaFunctions/coordinator/common', function () {
         }
       ];
 
+      expect(common.getInvocationCounts(applicationStatus)).to.eql(invocationCounts);
+    });
+
+    it('skips null queuedMessageCount', function () {
+      var invocationCounts = [];
+
+      applicationStatus.components[0].queuedMessageCount = null;
       expect(common.getInvocationCounts(applicationStatus)).to.eql(invocationCounts);
     });
   });
