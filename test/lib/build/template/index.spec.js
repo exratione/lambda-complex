@@ -3,6 +3,7 @@
  */
 
 // Core.
+var childProcess = require('child_process');
 var path = require('path');
 
 // Local.
@@ -11,7 +12,6 @@ var applicationConfig = require('../../../resources/mockApplication/applicationC
 var scratchDir = resources.getScratchDirectory();
 
 describe('lib/build/template/index.js.hbs', function () {
-
   var wrapperMessage;
   var wrapperMessageHandleFunction;
   var wrapperInvocation;
@@ -61,6 +61,46 @@ describe('lib/build/template/index.js.hbs', function () {
     wrapperMessage.lc.arnMap = arnMap;
     wrapperInvocation.lc.arnMap = arnMap;
 
+    // Similarly, sort out a dummy wrapped context, since that is also put in
+    // place by the handler.
+    wrapperMessage.lc.wrappedContext = {
+      originalContext: {
+        done: sandbox.stub(),
+        fail: sandbox.stub(),
+        getRemainingTimeInMillis: sandbox.stub(),
+        succeed: sandbox.stub()
+      },
+      done: sandbox.stub(),
+      fail: sandbox.stub(),
+      getRemainingTimeInMillis: sandbox.stub(),
+      succeed: sandbox.stub()
+    };
+    wrapperInvocation.lc.wrappedContext = {
+      originalContext: {
+        done: sandbox.stub(),
+        fail: sandbox.stub(),
+        getRemainingTimeInMillis: sandbox.stub(),
+        succeed: sandbox.stub()
+      },
+      done: sandbox.stub(),
+      fail: sandbox.stub(),
+      getRemainingTimeInMillis: sandbox.stub(),
+      succeed: sandbox.stub()
+    };
+
+    // And a receiptHandle.
+    wrapperMessage.lc.receiptHandle = 'receipt-handle';
+
+    // And incremented flags.
+    wrapperMessage.lc.incremented = true;
+    wrapperInvocation.lc.incremented = true;
+
+    // Turn off the handling of uncaught exceptions. This messes up testing
+    // horribly: we want exceptions to be uncaught since the objective is to
+    // have exception-free code.
+    wrapperMessage.lc.handleUncaughtException = false;
+    wrapperInvocation.lc.handleUncaughtException = false;
+
     // Make sure we stub the AWS client functions used here.
     sandbox.stub(wrapperMessage.lc.utilities, 'invoke').yields();
     sandbox.stub(wrapperInvocation.lc.utilities, 'invoke').yields();
@@ -75,6 +115,11 @@ describe('lib/build/template/index.js.hbs', function () {
     sandbox.stub(wrapperInvocation.lc.utilities, 'getQueueAttributes').yields();
     sandbox.stub(wrapperMessage.lc.utilities, 'loadArnMap').yields(null, arnMap);
     sandbox.stub(wrapperInvocation.lc.utilities, 'loadArnMap').yields(null, arnMap);
+
+    sandbox.stub(wrapperMessage.lc.utilities, 'incrementConcurrencyCount').yields();
+    sandbox.stub(wrapperInvocation.lc.utilities, 'incrementConcurrencyCount').yields();
+    sandbox.stub(wrapperMessage.lc.utilities, 'decrementConcurrencyCount').yields();
+    sandbox.stub(wrapperInvocation.lc.utilities, 'decrementConcurrencyCount').yields();
 
     // Stub the original handles.
     wrapperMessageHandleFunction = wrapperMessage.lc.utilities.getFunctionNameFromHandle(
@@ -188,7 +233,6 @@ describe('lib/build/template/index.js.hbs', function () {
   });
 
   describe('lc.sendData', function () {
-
     var error;
     var results;
 
@@ -420,17 +464,13 @@ describe('lib/build/template/index.js.hbs', function () {
         done();
       });
     });
-
-
   });
 
-  describe('lc.wrapContext', function () {
-
+  describe('lc.finalizeInvocation', function () {
     var clock;
     var context;
+    var error;
     var result;
-    var wrappedContextMessage;
-    var wrappedContextInvocation;
 
     beforeEach(function () {
       clock = sandbox.useFakeTimers();
@@ -441,6 +481,9 @@ describe('lib/build/template/index.js.hbs', function () {
       sandbox.stub(wrapperInvocation.lc, 'deleteMessageFromInputQueue').yields();
       sandbox.stub(console, 'error');
 
+      error = new Error();
+      result = {};
+
       context = {
         done: sandbox.stub(),
         fail: sandbox.stub(),
@@ -448,297 +491,279 @@ describe('lib/build/template/index.js.hbs', function () {
         succeed: sandbox.stub()
       };
 
-      result = {};
-
-      wrappedContextMessage = wrapperMessage.lc.wrapContext(context);
-      wrappedContextInvocation = wrapperInvocation.lc.wrapContext(context);
-
-      wrappedContextMessage.receiptHandle = 'receipt-handle';
-    });
-
-    describe('for eventFromInvocation component type', function () {
-
-      it('wrappedContext.getRemainingTimeInMillis passthrough', function () {
-        wrappedContextInvocation.getRemainingTimeInMillis();
-        sinon.assert.calledOnce(context.getRemainingTimeInMillis);
-        sinon.assert.alwaysCalledWith(context.getRemainingTimeInMillis);
-      });
-
-      it('wrappedContext.fail passthrough', function () {
-        var error = new Error();
-        wrappedContextInvocation.fail(error);
-        clock.tick(100);
-
-        sinon.assert.calledOnce(wrapperInvocation.lc.sendData);
-        sinon.assert.alwaysCalledWith(
-          wrapperInvocation.lc.sendData,
-          error,
-          undefined,
-          sinon.match.func
-        );
-
-        sinon.assert.notCalled(wrapperInvocation.lc.deleteMessageFromInputQueue);
-        sinon.assert.calledOnce(console.error);
-        sinon.assert.calledOnce(context.fail);
-        sinon.assert.alwaysCalledWith(context.fail, error);
-      });
-
-      describe('wrappedContext.done', function () {
-
-        it('with no errors makes all underlying calls', function () {
-          wrappedContextInvocation.done(undefined, result);
-          clock.tick(100);
-
-          sinon.assert.calledOnce(wrapperInvocation.lc.sendData);
-          sinon.assert.alwaysCalledWith(
-            wrapperInvocation.lc.sendData,
-            undefined,
-            result,
-            sinon.match.func
-          );
-
-          sinon.assert.notCalled(wrapperMessage.lc.deleteMessageFromInputQueue);
-          sinon.assert.calledOnce(context.done);
-          sinon.assert.alwaysCalledWith(context.done, undefined, result);
-        });
-
-        it('on send data error makes appropriate calls', function () {
-          var error = new Error();
-          wrapperInvocation.lc.sendData.yields(error);
-          wrappedContextInvocation.done(undefined, result);
-          clock.tick(100);
-
-          sinon.assert.calledOnce(wrapperInvocation.lc.sendData);
-          sinon.assert.alwaysCalledWith(
-            wrapperInvocation.lc.sendData,
-            undefined,
-            result,
-            sinon.match.func
-          );
-
-          sinon.assert.notCalled(wrapperInvocation.lc.deleteMessageFromInputQueue);
-          sinon.assert.calledOnce(console.error);
-          sinon.assert.calledOnce(context.done);
-          sinon.assert.alwaysCalledWith(context.done, error, result);
-        });
-      });
-
-      describe('wrappedContext.succeed', function () {
-
-        it('with no errors makes all underlying calls', function () {
-          wrappedContextInvocation.succeed(result);
-          clock.tick(100);
-
-          sinon.assert.calledOnce(wrapperInvocation.lc.sendData);
-          sinon.assert.alwaysCalledWith(
-            wrapperInvocation.lc.sendData,
-            undefined,
-            result,
-            sinon.match.func
-          );
-
-          sinon.assert.notCalled(wrapperInvocation.lc.deleteMessageFromInputQueue);
-          sinon.assert.calledOnce(context.succeed);
-          sinon.assert.alwaysCalledWith(context.succeed, result);
-        });
-
-        it('on send data error makes appropriate calls', function () {
-          var error = new Error();
-          wrapperInvocation.lc.sendData.yields(error);
-          wrappedContextInvocation.succeed(result);
-          clock.tick(100);
-
-          sinon.assert.calledOnce(wrapperInvocation.lc.sendData);
-          sinon.assert.alwaysCalledWith(
-            wrapperInvocation.lc.sendData,
-            undefined,
-            result,
-            sinon.match.func
-          );
-
-          sinon.assert.notCalled(wrapperInvocation.lc.deleteMessageFromInputQueue);
-          sinon.assert.calledOnce(console.error);
-          sinon.assert.notCalled(context.succeed);
-          sinon.assert.calledOnce(context.fail);
-          sinon.assert.alwaysCalledWith(context.fail, error);
-        });
-      });
+      wrapperMessage.lc.wrapContext(context);
+      wrapperInvocation.lc.wrapContext(context);
     });
 
     describe('for eventFromMessage component type', function () {
-
-      it('wrappedContext.getRemainingTimeInMillis passthrough', function () {
-        wrappedContextMessage.getRemainingTimeInMillis();
-        sinon.assert.calledOnce(context.getRemainingTimeInMillis);
-        sinon.assert.alwaysCalledWith(context.getRemainingTimeInMillis);
-      });
-
-      it('wrappedContext.fail passthrough', function () {
-        var error = new Error();
-        wrappedContextMessage.fail(error);
+      it('calls expected functions for done (success)', function () {
+        wrapperMessage.lc.finalizeInvocation('done', [null, result]);
         clock.tick(100);
 
-        sinon.assert.calledOnce(wrapperMessage.lc.sendData);
-        sinon.assert.alwaysCalledWith(
+        sinon.assert.notCalled(console.error);
+        sinon.assert.calledWith(
+          wrapperMessage.lc.sendData,
+          null,
+          result,
+          sinon.match.func
+        );
+        sinon.assert.calledWith(
+          wrapperMessage.lc.deleteMessageFromInputQueue,
+          wrapperMessage.lc.receiptHandle,
+          sinon.match.func
+        );
+        sinon.assert.calledWith(
+          wrapperMessage.lc.utilities.decrementConcurrencyCount,
+          wrapperMessage.lc.component,
+          wrapperMessage.lc.arnMap,
+          sinon.match.func
+        );
+        sinon.assert.calledWith(context.done, null, result);
+      });
+
+      it('calls expected functions for done (failure)', function () {
+        wrapperMessage.lc.finalizeInvocation('done', [error, result]);
+        clock.tick(100);
+
+        sinon.assert.notCalled(console.error);
+        sinon.assert.calledWith(
+          wrapperMessage.lc.sendData,
+          error,
+          result,
+          sinon.match.func
+        );
+        sinon.assert.notCalled(wrapperMessage.lc.deleteMessageFromInputQueue);
+        sinon.assert.calledWith(
+          wrapperMessage.lc.utilities.decrementConcurrencyCount,
+          wrapperMessage.lc.component,
+          wrapperMessage.lc.arnMap,
+          sinon.match.func
+        );
+        sinon.assert.calledWith(context.done, error, result);
+      });
+
+      it('calls expected functions for fail', function () {
+        wrapperMessage.lc.finalizeInvocation('fail', [error]);
+        clock.tick(100);
+
+        sinon.assert.notCalled(console.error);
+        sinon.assert.calledWith(
           wrapperMessage.lc.sendData,
           error,
           undefined,
           sinon.match.func
         );
-
         sinon.assert.notCalled(wrapperMessage.lc.deleteMessageFromInputQueue);
-        sinon.assert.calledOnce(console.error);
-        sinon.assert.calledOnce(context.fail);
-        sinon.assert.alwaysCalledWith(context.fail, error);
+        sinon.assert.calledWith(
+          wrapperMessage.lc.utilities.decrementConcurrencyCount,
+          wrapperMessage.lc.component,
+          wrapperMessage.lc.arnMap,
+          sinon.match.func
+        );
+        sinon.assert.calledWith(context.fail, error);
       });
 
-      describe('wrappedContext.done', function () {
+      it('calls expected functions for succeed', function () {
+        wrapperMessage.lc.finalizeInvocation('succeed', [result]);
+        clock.tick(100);
 
-        it('with no errors makes all underlying calls', function () {
-          wrappedContextMessage.done(undefined, result);
-          clock.tick(100);
-
-          sinon.assert.calledOnce(wrapperMessage.lc.sendData);
-          sinon.assert.alwaysCalledWith(
-            wrapperMessage.lc.sendData,
-            undefined,
-            result,
-            sinon.match.func
-          );
-
-          sinon.assert.calledOnce(wrapperMessage.lc.deleteMessageFromInputQueue);
-          sinon.assert.alwaysCalledWith(
-            wrapperMessage.lc.deleteMessageFromInputQueue,
-            wrappedContextMessage.receiptHandle,
-            sinon.match.func
-          );
-
-          sinon.assert.calledOnce(context.done);
-          sinon.assert.alwaysCalledWith(context.done, undefined, result);
-        });
-
-        it('on send data error makes appropriate calls', function () {
-          var error = new Error();
-          wrapperMessage.lc.sendData.yields(error);
-          wrappedContextMessage.done(undefined, result);
-          clock.tick(100);
-
-          sinon.assert.calledOnce(wrapperMessage.lc.sendData);
-          sinon.assert.alwaysCalledWith(
-            wrapperMessage.lc.sendData,
-            undefined,
-            result,
-            sinon.match.func
-          );
-
-          sinon.assert.notCalled(wrapperMessage.lc.deleteMessageFromInputQueue);
-          sinon.assert.calledOnce(console.error);
-          sinon.assert.calledOnce(context.done);
-          sinon.assert.alwaysCalledWith(context.done, error, result);
-        });
-
-        it('on delete message error makes appropriate calls', function () {
-          var error = new Error();
-          wrapperMessage.lc.deleteMessageFromInputQueue.yields(error);
-          wrappedContextMessage.done(undefined, result);
-          clock.tick(100);
-
-          sinon.assert.calledOnce(wrapperMessage.lc.sendData);
-          sinon.assert.alwaysCalledWith(
-            wrapperMessage.lc.sendData,
-            undefined,
-            result,
-            sinon.match.func
-          );
-
-          sinon.assert.calledOnce(wrapperMessage.lc.deleteMessageFromInputQueue);
-          sinon.assert.alwaysCalledWith(
-            wrapperMessage.lc.deleteMessageFromInputQueue,
-            wrappedContextMessage.receiptHandle,
-            sinon.match.func
-          );
-
-          sinon.assert.calledOnce(console.error);
-          sinon.assert.calledOnce(context.done);
-          sinon.assert.alwaysCalledWith(context.done, error, result);
-        });
+        sinon.assert.notCalled(console.error);
+        sinon.assert.calledWith(
+          wrapperMessage.lc.sendData,
+          undefined,
+          result,
+          sinon.match.func
+        );
+        sinon.assert.calledWith(
+          wrapperMessage.lc.deleteMessageFromInputQueue,
+          wrapperMessage.lc.receiptHandle,
+          sinon.match.func
+        );
+        sinon.assert.calledWith(
+          wrapperMessage.lc.utilities.decrementConcurrencyCount,
+          wrapperMessage.lc.component,
+          wrapperMessage.lc.arnMap,
+          sinon.match.func
+        );
+        sinon.assert.calledWith(context.succeed, result);
       });
 
-      describe('wrappedContext.succeed', function () {
+      it('switches from done to fail on error in sendData', function () {
+        wrapperMessage.lc.sendData.yields(new Error());
+        wrapperMessage.lc.finalizeInvocation('done', [null, result]);
+        clock.tick(100);
 
-        it('with no errors makes all underlying calls', function () {
-          wrappedContextMessage.succeed(result);
-          clock.tick(100);
+        sinon.assert.calledWith(context.fail, sinon.match.instanceOf(Error));
+      });
 
-          sinon.assert.calledOnce(wrapperMessage.lc.sendData);
-          sinon.assert.alwaysCalledWith(
-            wrapperMessage.lc.sendData,
-            undefined,
-            result,
-            sinon.match.func
-          );
+      it('switches from succeed to fail on error in sendData', function () {
+        wrapperMessage.lc.sendData.yields(new Error());
+        wrapperMessage.lc.finalizeInvocation('succeed', [result]);
+        clock.tick(100);
 
-          sinon.assert.calledOnce(wrapperMessage.lc.deleteMessageFromInputQueue);
-          sinon.assert.alwaysCalledWith(
-            wrapperMessage.lc.deleteMessageFromInputQueue,
-            wrappedContextMessage.receiptHandle,
-            sinon.match.func
-          );
+        sinon.assert.calledWith(context.fail, sinon.match.instanceOf(Error));
+      });
 
-          sinon.assert.calledOnce(context.succeed);
-          sinon.assert.alwaysCalledWith(context.succeed, result);
-        });
+      it('maintains existing fail error on error in sendData', function () {
+        wrapperMessage.lc.sendData.yields(new Error());
+        wrapperMessage.lc.finalizeInvocation('fail', [error]);
+        clock.tick(100);
 
-        it('on send data error makes appropriate calls', function () {
-          var error = new Error();
-          wrapperMessage.lc.sendData.yields(error);
-          wrappedContextMessage.succeed(result);
-          clock.tick(100);
-
-          sinon.assert.calledOnce(wrapperMessage.lc.sendData);
-          sinon.assert.alwaysCalledWith(
-            wrapperMessage.lc.sendData,
-            undefined,
-            result,
-            sinon.match.func
-          );
-
-          sinon.assert.notCalled(wrapperMessage.lc.deleteMessageFromInputQueue);
-          sinon.assert.calledOnce(console.error);
-          sinon.assert.notCalled(context.succeed);
-          sinon.assert.calledOnce(context.fail);
-          sinon.assert.alwaysCalledWith(context.fail, error);
-        });
-
-        it('on delete message error makes appropriate calls', function () {
-          var error = new Error();
-          wrapperMessage.lc.deleteMessageFromInputQueue.yields(error);
-          wrappedContextMessage.succeed(result);
-          clock.tick(100);
-
-          sinon.assert.calledOnce(wrapperMessage.lc.sendData);
-          sinon.assert.alwaysCalledWith(
-            wrapperMessage.lc.sendData,
-            undefined,
-            result,
-            sinon.match.func
-          );
-
-          sinon.assert.calledOnce(wrapperMessage.lc.deleteMessageFromInputQueue);
-          sinon.assert.alwaysCalledWith(
-            wrapperMessage.lc.deleteMessageFromInputQueue,
-            wrappedContextMessage.receiptHandle,
-            sinon.match.func
-          );
-
-          sinon.assert.calledOnce(console.error);
-          sinon.assert.calledOnce(context.fail);
-          sinon.assert.alwaysCalledWith(context.fail, error);
-        });
-
+        sinon.assert.calledWith(context.fail, error);
       });
     });
 
+    describe('for eventFromInvocation component type', function () {
+      it('calls expected functions for done (success)', function () {
+        wrapperInvocation.lc.finalizeInvocation('done', [null, result]);
+        clock.tick(100);
+
+        sinon.assert.notCalled(console.error);
+        sinon.assert.calledWith(
+          wrapperInvocation.lc.sendData,
+          null,
+          result,
+          sinon.match.func
+        );
+        sinon.assert.notCalled(wrapperInvocation.lc.deleteMessageFromInputQueue);
+        sinon.assert.calledWith(
+          wrapperInvocation.lc.utilities.decrementConcurrencyCount,
+          wrapperInvocation.lc.component,
+          wrapperInvocation.lc.arnMap,
+          sinon.match.func
+        );
+        sinon.assert.calledWith(context.done, null, result);
+      });
+
+      it('calls expected functions for done (failure)', function () {
+        wrapperInvocation.lc.finalizeInvocation('done', [error, result]);
+        clock.tick(100);
+
+        sinon.assert.notCalled(console.error);
+        sinon.assert.calledWith(
+          wrapperInvocation.lc.sendData,
+          error,
+          result,
+          sinon.match.func
+        );
+        sinon.assert.notCalled(wrapperInvocation.lc.deleteMessageFromInputQueue);
+        sinon.assert.calledWith(
+          wrapperInvocation.lc.utilities.decrementConcurrencyCount,
+          wrapperInvocation.lc.component,
+          wrapperInvocation.lc.arnMap,
+          sinon.match.func
+        );
+        sinon.assert.calledWith(context.done, error, result);
+      });
+
+      it('calls expected functions for fail', function () {
+        wrapperInvocation.lc.finalizeInvocation('fail', [error]);
+        clock.tick(100);
+
+        sinon.assert.calledWith(
+          wrapperInvocation.lc.sendData,
+          error,
+          undefined,
+          sinon.match.func
+        );
+        sinon.assert.notCalled(wrapperInvocation.lc.deleteMessageFromInputQueue);
+        sinon.assert.calledWith(
+          wrapperInvocation.lc.utilities.decrementConcurrencyCount,
+          wrapperInvocation.lc.component,
+          wrapperInvocation.lc.arnMap,
+          sinon.match.func
+        );
+        sinon.assert.calledWith(context.fail, error);
+      });
+
+      it('calls expected functions for succeed', function () {
+        wrapperInvocation.lc.finalizeInvocation('succeed', [result]);
+        clock.tick(100);
+
+        sinon.assert.calledWith(
+          wrapperInvocation.lc.sendData,
+          undefined,
+          result,
+          sinon.match.func
+        );
+        sinon.assert.notCalled(wrapperInvocation.lc.deleteMessageFromInputQueue);
+        sinon.assert.calledWith(
+          wrapperInvocation.lc.utilities.decrementConcurrencyCount,
+          wrapperInvocation.lc.component,
+          wrapperInvocation.lc.arnMap,
+          sinon.match.func
+        );
+        sinon.assert.calledWith(context.succeed, result);
+      });
+    });
+
+  });
+
+  describe('lc.wrapContext', function () {
+    var context;
+    var error;
+    var result;
+    var wrappedContext;
+
+    beforeEach(function () {
+      context = {
+        getRemainingTimeInMillis: sandbox.stub()
+      };
+      error = new Error();
+      result = {};
+      wrappedContext = wrapperMessage.lc.wrapContext(context);
+
+      sandbox.stub(wrapperMessage.lc, 'finalizeInvocation');
+    });
+
+    it('is assigned to lc.wrappedContext', function () {
+      expect(wrappedContext).to.equal(wrapperMessage.lc.wrappedContext);
+    });
+
+    it('passes through getRemainingTimeInMillis', function () {
+      wrappedContext.getRemainingTimeInMillis();
+      sinon.assert.calledWith(context.getRemainingTimeInMillis);
+    });
+
+    it('invokes finalizeInvocation for done', function () {
+      wrappedContext.done(error, result);
+      sinon.assert.calledWith(
+        wrapperMessage.lc.finalizeInvocation,
+        'done',
+        [error, result]
+      );
+    });
+
+    it('invokes finalizeInvocation for fail', function () {
+      wrappedContext.fail(error);
+      sinon.assert.calledWith(
+        wrapperMessage.lc.finalizeInvocation,
+        'fail',
+        [error]
+      );
+    });
+
+    it('invokes finalizeInvocation for succeed', function () {
+      wrappedContext.succeed(result);
+      sinon.assert.calledWith(
+        wrapperMessage.lc.finalizeInvocation,
+        'succeed',
+        [result]
+      );
+    });
+
+    it('invokes finalizeInvocation only once', function () {
+      wrappedContext.succeed(result);
+      wrappedContext.done(error, result);
+      wrappedContext.fail(error);
+
+      sinon.assert.calledOnce(wrapperMessage.lc.finalizeInvocation);
+      sinon.assert.calledWith(
+        wrapperMessage.lc.finalizeInvocation,
+        'succeed',
+        [result]
+      );
+    });
   });
 
   describe('lc.handleAsEventFromInvocationType', function () {
@@ -762,19 +787,12 @@ describe('lib/build/template/index.js.hbs', function () {
 
   describe('lc.handleAsEventFromMessageType', function () {
     var clock;
-    var wrappedContext;
     var eventFromMessage;
     var message;
 
     beforeEach(function () {
 
       clock = sandbox.useFakeTimers();
-      wrappedContext = {
-        done: sandbox.stub(),
-        fail: sandbox.stub(),
-        getRemainingTimeInMillis: sandbox.stub(),
-        succeed: sandbox.stub()
-      };
       eventFromMessage = {};
       message = {
         message: JSON.stringify(eventFromMessage),
@@ -782,27 +800,34 @@ describe('lib/build/template/index.js.hbs', function () {
       };
     });
 
-    it('calls context.succeed rather than handle if no message', function () {
+    it('calls context.fail rather than handle if no message', function () {
       wrapperMessage.lc.utilities.receiveMessage.yields();
 
-      wrapperMessage.lc.handleAsEventFromMessageType({}, wrappedContext);
+      wrapperMessage.lc.handleAsEventFromMessageType(
+        {},
+        wrapperMessage.lc.wrappedContext
+      );
       clock.tick(100);
 
       sinon.assert.notCalled(originalMessage[wrapperMessageHandleFunction]);
-      sinon.assert.calledOnce(wrappedContext.succeed);
-      sinon.assert.alwaysCalledWith(wrappedContext.succeed);
+      sinon.assert.calledWith(
+        wrapperMessage.lc.wrappedContext.fail,
+        sinon.match.instanceOf(Error)
+      );
     });
 
     it('calls context.fail on SQS client error', function () {
       var error = new Error();
       wrapperMessage.lc.utilities.receiveMessage.yields(error);
 
-      wrapperMessage.lc.handleAsEventFromMessageType({}, wrappedContext);
+      wrapperMessage.lc.handleAsEventFromMessageType(
+        {},
+        wrapperMessage.lc.wrappedContext
+      );
       clock.tick(100);
 
       sinon.assert.notCalled(originalMessage[wrapperMessageHandleFunction]);
-      sinon.assert.calledOnce(wrappedContext.fail);
-      sinon.assert.alwaysCalledWith(wrappedContext.fail, error);
+      sinon.assert.calledWith(wrapperMessage.lc.wrappedContext.fail, error);
     });
 
     it('receives from SQS and passes through to underlying handle', function () {
@@ -811,13 +836,16 @@ describe('lib/build/template/index.js.hbs', function () {
         message
       );
 
-      wrapperMessage.lc.handleAsEventFromMessageType({}, wrappedContext);
+      wrapperMessage.lc.handleAsEventFromMessageType(
+        {},
+        wrapperMessage.lc.wrappedContext
+      );
       clock.tick(100);
 
       sinon.assert.calledWith(
         originalMessage[wrapperMessageHandleFunction],
         eventFromMessage,
-        wrappedContext
+        wrapperMessage.lc.wrappedContext
       );
     });
 
@@ -828,36 +856,57 @@ describe('lib/build/template/index.js.hbs', function () {
         message
       );
 
-      wrapperMessage.lc.handleAsEventFromMessageType({}, wrappedContext);
+      wrapperMessage.lc.handleAsEventFromMessageType(
+        {},
+        wrapperMessage.lc.wrappedContext
+      );
       clock.tick(100);
-      expect(wrappedContext.receiptHandle).to.equal(message.receiptHandle);
+      expect(wrapperMessage.lc.receiptHandle).to.equal(message.receiptHandle);
+    });
+  });
+
+  describe('uncaught exception handling', function () {
+
+    it('correctly handles an uncaught exception', function (done) {
+      // This test has to happen in a subprocess because of the way in which
+      // Mocha works.
+      var proc = childProcess.fork(
+        path.resolve(__dirname, '../../../resources/uncaughtExceptionTest'),
+        {
+          env: process.env,
+          silent: true
+        }
+      );
+
+      var output = '';
+
+      proc.stdout.on('data', function (data) {
+        output += data.toString();
+      });
+
+      proc.stderr.on('data', function (data) {
+        output += data.toString();
+      });
+
+      proc.on('exit', function (code) {
+        expect(code).to.equal(0);
+        expect(output).to.match(/SUCCESS/);
+        done();
+      });
     });
   });
 
   describe('wrapped handle', function () {
-    var event;
     var context;
-    var wrappedContext;
+    var event;
 
     beforeEach(function () {
+      context = {};
       event = {};
-      context = {
-        done: sandbox.stub(),
-        fail: sandbox.stub(),
-        getRemainingTimeInMillis: sandbox.stub(),
-        succeed: sandbox.stub()
-      };
 
       // Remove the ARN map, as this function should be putting it in place.
       wrapperMessage.lc.arnMap = undefined;
       wrapperInvocation.lc.arnMap = undefined;
-
-      wrappedContext = {
-        done: sandbox.stub(),
-        fail: sandbox.stub(),
-        getRemainingTimeInMillis: sandbox.stub(),
-        succeed: sandbox.stub()
-      };
 
       // Prevent logging.
       sandbox.stub(console, 'info');
@@ -869,8 +918,13 @@ describe('lib/build/template/index.js.hbs', function () {
 
       // Dummy the wrapping of the context to return the same stubbed context
       // above rather than something new.
-      sandbox.stub(wrapperInvocation.lc, 'wrapContext').returns(wrappedContext);
-      sandbox.stub(wrapperMessage.lc, 'wrapContext').returns(wrappedContext);
+      sandbox.stub(wrapperInvocation.lc, 'wrapContext');
+      sandbox.stub(wrapperMessage.lc, 'wrapContext');
+    });
+
+    it('puts arnMap into place', function () {
+      wrapperInvocation[wrapperInvocationHandleFunction](event, context);
+      expect(wrapperInvocation.lc.arnMap).to.equal(arnMap);
     });
 
     it('calls correct function for invocation type', function () {
@@ -880,7 +934,7 @@ describe('lib/build/template/index.js.hbs', function () {
       sinon.assert.calledWith(
         wrapperInvocation.lc.handleAsEventFromInvocationType,
         event,
-        sinon.match.same(wrappedContext)
+        wrapperInvocation.lc.wrappedContext
       );
       sinon.assert.notCalled(wrapperInvocation.lc.handleAsEventFromMessageType);
     });
@@ -892,7 +946,7 @@ describe('lib/build/template/index.js.hbs', function () {
       sinon.assert.calledWith(
         wrapperMessage.lc.handleAsEventFromMessageType,
         event,
-        sinon.match.same(wrappedContext)
+        wrapperMessage.lc.wrappedContext
       );
       sinon.assert.notCalled(
         wrapperMessage.lc.handleAsEventFromInvocationType
@@ -906,20 +960,16 @@ describe('lib/build/template/index.js.hbs', function () {
       wrapperMessage[wrapperMessageHandleFunction](event, context);
 
       sinon.assert.calledWith(
-        wrappedContext.fail,
+        wrapperMessage.lc.wrappedContext.fail,
         sinon.match.instanceOf(Error)
       );
       sinon.assert.notCalled(
-        wrapperInvocation.lc.handleAsEventFromInvocationType
-      );
-      sinon.assert.notCalled(
-        wrapperInvocation.lc.handleAsEventFromMessageType
+        wrapperMessage.lc.handleAsEventFromInvocationType
       );
 
       // Restore the right type.
       wrapperMessage.lc.component.type = stashedType;
     });
-
 
   });
 

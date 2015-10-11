@@ -16,12 +16,12 @@ var applicationConfig = require('../../resources/mockApplication/applicationConf
 describe('lib/shared/utilities', function () {
 
   var sandbox;
-  var componentName;
+  var component;
   var arnMap;
 
   beforeEach(function () {
     sandbox = sinon.sandbox.create();
-    componentName = applicationConfig.components[0].name;
+    component = applicationConfig.components[0];
     arnMap = resources.getMockArnMap(applicationConfig);
 
     // Make sure we stub the AWS client functions used here.
@@ -159,6 +159,56 @@ describe('lib/shared/utilities', function () {
     });
   });
 
+  describe('series', function () {
+    var fn1;
+    var fn2;
+    var fn3;
+    var fns;
+
+    beforeEach(function () {
+      fn1 = sandbox.stub();
+      fn2 = sandbox.stub();
+      fn3 = sandbox.stub();
+      fn1.yields();
+      fn2.yields();
+      fn3.yields();
+
+      fns = [fn1, fn2, fn3];
+    });
+
+    it('executes provided functions in series', function (done) {
+      utilities.series(fns, function (error) {
+        sinon.assert.callOrder(fn1, fn2, fn3);
+        sinon.assert.calledWith(fn1, sinon.match.func);
+        sinon.assert.calledWith(fn2, sinon.match.func);
+        sinon.assert.calledWith(fn3, sinon.match.func);
+        done(error);
+      });
+    });
+
+    it('breaks series on error', function (done) {
+      var error = new Error();
+      fn2.yields(error);
+
+      utilities.series(fns, function (error) {
+        expect(error).to.equal(error);
+
+        sinon.assert.calledWith(fn1, sinon.match.func);
+        sinon.assert.calledWith(fn2, sinon.match.func);
+        sinon.assert.notCalled(fn3);
+
+        done();
+      });
+    });
+
+    it('calls back with error if not passed an array', function (done) {
+      utilities.series({}, function (error) {
+        expect(error).to.be.instanceOf(Error);
+        done();
+      });
+    });
+  });
+
   describe('getFileBaseNameFromHandle', function () {
     it('functions correctly', function () {
       expect(
@@ -183,94 +233,94 @@ describe('lib/shared/utilities', function () {
 
   describe('getRoleName', function () {
     it('functions correctly', function () {
-      var fullName = utilities.getRoleName(componentName);
-      expect(fullName).to.equal(_.capitalize(componentName) + 'Role');
+      var fullName = utilities.getRoleName(component.name);
+      expect(fullName).to.equal(_.capitalize(component.name) + 'Role');
     });
   });
 
   describe('getQueueName', function () {
     it('functions correctly', function () {
-      var fullName = utilities.getQueueName(componentName);
-      expect(fullName).to.equal(_.capitalize(componentName) + 'Queue');
+      var fullName = utilities.getQueueName(component.name);
+      expect(fullName).to.equal(_.capitalize(component.name) + 'Queue');
     });
   });
 
   describe('getFullQueueName', function () {
     it('functions correctly', function () {
       var fullName = utilities.getFullQueueName(
-        componentName,
+        component.name,
         applicationConfig
       );
       expect(fullName).to.equal(
         applicationConfig.name + '-' +
         applicationConfig.deployId + '-' +
-        utilities.getQueueName(componentName)
+        utilities.getQueueName(component.name)
       );
     });
   });
 
   describe('getConcurrencyQueueName', function () {
     it('functions correctly', function () {
-      var fullName = utilities.getConcurrencyQueueName(componentName);
-      expect(fullName).to.equal(_.capitalize(componentName) + 'ConcurrencyQueue');
+      var fullName = utilities.getConcurrencyQueueName(component.name);
+      expect(fullName).to.equal(_.capitalize(component.name) + 'ConcurrencyQueue');
     });
   });
 
   describe('getFullConcurrencyQueueName', function () {
     it('functions correctly', function () {
       var fullName = utilities.getFullConcurrencyQueueName(
-        componentName,
+        component.name,
         applicationConfig
       );
       expect(fullName).to.equal(
         applicationConfig.name + '-' +
         applicationConfig.deployId + '-' +
-        utilities.getConcurrencyQueueName(componentName)
+        utilities.getConcurrencyQueueName(component.name)
       );
     });
   });
 
   describe('getLambdaFunctionName', function () {
     it('functions correctly', function () {
-      var fullName = utilities.getLambdaFunctionName(componentName);
-      expect(fullName).to.equal(_.capitalize(componentName));
+      var fullName = utilities.getLambdaFunctionName(component.name);
+      expect(fullName).to.equal(_.capitalize(component.name));
     });
   });
 
   describe('getQueueArnOutputName', function () {
     it('functions correctly', function () {
-      var fullName = utilities.getQueueArnOutputName(componentName);
+      var fullName = utilities.getQueueArnOutputName(component.name);
       expect(fullName).to.equal(
-        utilities.getQueueName(componentName) + 'Arn'
+        utilities.getQueueName(component.name) + 'Arn'
       );
     });
   });
 
   describe('getConcurrencyQueueArnOutputName', function () {
     it('functions correctly', function () {
-      var fullName = utilities.getConcurrencyQueueArnOutputName(componentName);
+      var fullName = utilities.getConcurrencyQueueArnOutputName(component.name);
       expect(fullName).to.equal(
-        utilities.getConcurrencyQueueName(componentName) + 'Arn'
+        utilities.getConcurrencyQueueName(component.name) + 'Arn'
       );
     });
   });
 
   describe('getLambdaFunctionArnOutputName', function () {
     it('functions correctly', function () {
-      var fullName = utilities.getLambdaFunctionArnOutputName(componentName);
+      var fullName = utilities.getLambdaFunctionArnOutputName(component.name);
       expect(fullName).to.equal(
-        utilities.getLambdaFunctionName(componentName) + 'Arn'
+        utilities.getLambdaFunctionName(component.name) + 'Arn'
       );
     });
   });
 
   describe('getQueueArn', function () {
     it('functions correctly', function () {
-      var arn = utilities.getQueueArn(componentName, arnMap);
+      var arn = utilities.getQueueArn(component.name, arnMap);
 
       expect(arn).to.be.a('string');
       expect(arn).to.equal(
-        arnMap[utilities.getQueueArnOutputName(componentName)]
+        arnMap[utilities.getQueueArnOutputName(component.name)]
       );
     });
 
@@ -281,11 +331,11 @@ describe('lib/shared/utilities', function () {
 
   describe('getConcurrencyQueueArn', function () {
     it('functions correctly', function () {
-      var arn = utilities.getConcurrencyQueueArn(componentName, arnMap);
+      var arn = utilities.getConcurrencyQueueArn(component.name, arnMap);
 
       expect(arn).to.be.a('string');
       expect(arn).to.equal(
-        arnMap[utilities.getConcurrencyQueueArnOutputName(componentName)]
+        arnMap[utilities.getConcurrencyQueueArnOutputName(component.name)]
       );
     });
 
@@ -310,7 +360,7 @@ describe('lib/shared/utilities', function () {
         'arn:aws:sqs:us-east-1:444555666777:queuename'
       );
 
-      var url = utilities.getQueueUrl(componentName, arnMap);
+      var url = utilities.getQueueUrl(component.name, arnMap);
       expect(url).to.equal(
         'https://sqs.us-east-1.amazonaws.com/444555666777/queuename'
       );
@@ -323,7 +373,7 @@ describe('lib/shared/utilities', function () {
         'arn:aws:sqs:us-east-1:444555666777:queuename'
       );
 
-      var url = utilities.getConcurrencyQueueUrl(componentName, arnMap);
+      var url = utilities.getConcurrencyQueueUrl(component.name, arnMap);
       expect(url).to.equal(
         'https://sqs.us-east-1.amazonaws.com/444555666777/queuename'
       );
@@ -332,11 +382,11 @@ describe('lib/shared/utilities', function () {
 
   describe('getLambdaFunctionArn', function () {
     it('functions correctly', function () {
-      var arn = utilities.getLambdaFunctionArn(componentName, arnMap);
+      var arn = utilities.getLambdaFunctionArn(component.name, arnMap);
 
       expect(arn).to.be.a('string');
       expect(arn).to.equal(
-        arnMap[utilities.getLambdaFunctionArnOutputName(componentName)]
+        arnMap[utilities.getLambdaFunctionArnOutputName(component.name)]
       );
     });
 
@@ -611,8 +661,132 @@ describe('lib/shared/utilities', function () {
         done(error);
       });
     });
+  });
 
+  describe('incrementConcurrencyCount', function () {
+    beforeEach(function () {
+      sandbox.stub(utilities, 'sendMessage').yields();
+    });
 
+    it('calls the underlying function as expected', function (done) {
+      utilities.incrementConcurrencyCount(component, arnMap, function (error) {
+        sinon.assert.callCount(utilities.sendMessage, 1);
+        sinon.assert.alwaysCalledWith(
+          utilities.sendMessage,
+          utilities.getConcurrencyQueueUrl(component.name, arnMap),
+          {},
+          sinon.match.func
+        );
+
+        done(error);
+      });
+    });
+
+    it('retries on failure', function (done) {
+      sandbox.stub(console, 'error');
+      utilities.sendMessage.onCall(0).yields(new Error());
+
+      utilities.incrementConcurrencyCount(component, arnMap, function (error) {
+        sinon.assert.callCount(console.error, 1);
+        sinon.assert.callCount(utilities.sendMessage, 2);
+        sinon.assert.alwaysCalledWith(
+          utilities.sendMessage,
+          utilities.getConcurrencyQueueUrl(component.name, arnMap),
+          {},
+          sinon.match.func
+        );
+
+        done(error);
+      });
+    });
+  });
+
+  describe('decrementConcurrencyCount', function () {
+    var receiptHandle;
+
+    beforeEach(function () {
+      receiptHandle = 'receiptHandle';
+
+      sandbox.stub(utilities, 'receiveMessage').yields(null, {
+        message: '{}',
+        receiptHandle: receiptHandle
+      });
+      sandbox.stub(utilities, 'deleteMessage').yields();
+    });
+
+    it('calls the underlying functions as expected', function (done) {
+      utilities.decrementConcurrencyCount(component, arnMap, function (error) {
+        sinon.assert.callCount(utilities.receiveMessage, 1);
+        sinon.assert.alwaysCalledWith(
+          utilities.receiveMessage,
+          utilities.getConcurrencyQueueUrl(component.name, arnMap),
+          0,
+          component.queueWaitTime,
+          sinon.match.func
+        );
+        sinon.assert.callCount(utilities.deleteMessage, 1);
+        sinon.assert.alwaysCalledWith(
+          utilities.deleteMessage,
+          utilities.getConcurrencyQueueUrl(component.name, arnMap),
+          receiptHandle,
+          sinon.match.func
+        );
+
+        done(error);
+      });
+    });
+
+    it('retries on failure of receiveMessage', function (done) {
+      sandbox.stub(console, 'error');
+      utilities.receiveMessage.onCall(0).yields(new Error());
+
+      utilities.decrementConcurrencyCount(component, arnMap, function (error) {
+        sinon.assert.callCount(console.error, 1);
+        sinon.assert.callCount(utilities.receiveMessage, 2);
+        sinon.assert.alwaysCalledWith(
+          utilities.receiveMessage,
+          utilities.getConcurrencyQueueUrl(component.name, arnMap),
+          0,
+          component.queueWaitTime,
+          sinon.match.func
+        );
+        sinon.assert.callCount(utilities.deleteMessage, 1);
+        sinon.assert.alwaysCalledWith(
+          utilities.deleteMessage,
+          utilities.getConcurrencyQueueUrl(component.name, arnMap),
+          receiptHandle,
+          sinon.match.func
+        );
+
+        done(error);
+      });
+    });
+
+    it('retries on failure of deleteMessage', function (done) {
+      sandbox.stub(console, 'error');
+      utilities.deleteMessage.onCall(0).yields(new Error());
+
+      utilities.decrementConcurrencyCount(component, arnMap, function (error) {
+        sinon.assert.callCount(console.error, 1);
+        sinon.assert.callCount(utilities.receiveMessage, 1);
+        sinon.assert.alwaysCalledWith(
+          utilities.receiveMessage,
+          utilities.getConcurrencyQueueUrl(component.name, arnMap),
+          0,
+          component.queueWaitTime,
+          sinon.match.func
+        );
+        sinon.assert.callCount(utilities.deleteMessage, 2);
+        sinon.assert.alwaysCalledWith(
+          utilities.deleteMessage,
+          utilities.getConcurrencyQueueUrl(component.name, arnMap),
+          receiptHandle,
+          sinon.match.func
+        );
+
+        done(error);
+      });
+    });
   });
 
   describe('getFullS3KeyPrefix', function () {

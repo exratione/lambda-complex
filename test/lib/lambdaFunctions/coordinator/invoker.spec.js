@@ -6,6 +6,8 @@
 var path = require('path');
 
 // Local.
+
+
 var resources = require('../../../resources');
 var applicationConfig = require('../../../resources/mockApplication/applicationConfig');
 var scratchDir = resources.getScratchDirectory();
@@ -34,6 +36,11 @@ describe('lib/lambdaFunctions/coordinator/invoker', function () {
       mockApplicationDir,
       'lambdaComplexCoordinator',
       'common'
+    ));
+    constants = require(path.join(
+      mockApplicationDir,
+      'lambdaComplexCoordinator',
+      '_constants'
     ));
     invoker = require(path.join(
       mockApplicationDir,
@@ -77,6 +84,8 @@ describe('lib/lambdaFunctions/coordinator/invoker', function () {
       invoker.arnMap = undefined;
 
       sandbox.stub(utilities, 'loadArnMap').yields(null, arnMap);
+      sandbox.stub(utilities, 'incrementConcurrencyCount').yields();
+      sandbox.stub(utilities, 'decrementConcurrencyCount').yields();
       sandbox.stub(common, 'invokeApplicationLambdaFunctions').yields();
     });
 
@@ -90,13 +99,27 @@ describe('lib/lambdaFunctions/coordinator/invoker', function () {
           sinon.match.func
         );
         sinon.assert.calledWith(
+          utilities.incrementConcurrencyCount,
+          constants.invoker.COMPONENT,
+          arnMap,
+          sinon.match.func
+        );
+        sinon.assert.calledWith(
           common.invokeApplicationLambdaFunctions,
           event.components,
           arnMap,
           sinon.match.func
         );
         sinon.assert.calledWith(
-          context.done
+          utilities.decrementConcurrencyCount,
+          constants.invoker.COMPONENT,
+          arnMap,
+          sinon.match.func
+        );
+        sinon.assert.calledWith(
+          context.done,
+          null,
+          event.components
         );
 
         done();
@@ -106,7 +129,6 @@ describe('lib/lambdaFunctions/coordinator/invoker', function () {
     it('defaults to empty component array', function (done) {
       event = {};
       invoker.handler(event, context);
-
 
       setTimeout(function () {
         sinon.assert.calledWith(
@@ -121,6 +143,7 @@ describe('lib/lambdaFunctions/coordinator/invoker', function () {
     });
 
     it('errors on failure of loadArnMap', function (done) {
+      sandbox.stub(console, 'error');
       utilities.loadArnMap.yields(new Error());
 
       invoker.handler(event, context);
@@ -128,14 +151,52 @@ describe('lib/lambdaFunctions/coordinator/invoker', function () {
       setTimeout(function () {
         sinon.assert.calledWith(
           context.done,
-          sinon.match.instanceOf(Error)
+          sinon.match.instanceOf(Error),
+          event.components
         );
 
         done();
       }, 20);
     });
 
+    it('proceeds after increment error', function (done) {
+      sandbox.stub(console, 'error');
+      utilities.incrementConcurrencyCount.yields(new Error());
+
+      invoker.handler(event, context);
+
+      setTimeout(function () {
+        sinon.assert.calledWith(
+          utilities.loadArnMap,
+          resources.getConfigMatcher(applicationConfig),
+          sinon.match.func
+        );
+        sinon.assert.calledWith(
+          utilities.incrementConcurrencyCount,
+          constants.invoker.COMPONENT,
+          arnMap,
+          sinon.match.func
+        );
+        sinon.assert.calledWith(
+          common.invokeApplicationLambdaFunctions,
+          event.components,
+          arnMap,
+          sinon.match.func
+        );
+        sinon.assert.notCalled(utilities.decrementConcurrencyCount);
+        sinon.assert.calledWith(
+          context.done,
+          null,
+          event.components
+        );
+
+        done();
+      }, 20);
+    });
+
+
     it('errors on failure of invokeApplicationLambdaFunctions', function (done) {
+      sandbox.stub(console, 'error');
       common.invokeApplicationLambdaFunctions.yields(new Error());
 
       invoker.handler(event, context);
@@ -143,7 +204,25 @@ describe('lib/lambdaFunctions/coordinator/invoker', function () {
       setTimeout(function () {
         sinon.assert.calledWith(
           context.done,
-          sinon.match.instanceOf(Error)
+          sinon.match.instanceOf(Error),
+          event.components
+        );
+
+        done();
+      }, 20);
+    });
+
+    it('errors on failure of decrementConcurrencyCount', function (done) {
+      sandbox.stub(console, 'error');
+      utilities.decrementConcurrencyCount.yields(new Error());
+
+      invoker.handler(event, context);
+
+      setTimeout(function () {
+        sinon.assert.calledWith(
+          context.done,
+          sinon.match.instanceOf(Error),
+          event.components
         );
 
         done();
