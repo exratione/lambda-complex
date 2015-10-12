@@ -93,13 +93,14 @@ describe('lib/lambdaFunctions/coordinator/coordinator', function () {
             },
             {
               name: 'message',
-              type: 'eventFromMessage',
+              type: constants.componentType.EVENT_FROM_MESSAGE,
               concurrency: messageCount,
+              maxConcurrency: 10,
               queuedMessageCount: messageCount
             },
             {
               name: 'invocation',
-              type: 'eventFromInvocation',
+              type: constants.componentType.EVENT_FROM_INVOCATION,
               concurrency: messageCount
             }
           ]
@@ -128,13 +129,14 @@ describe('lib/lambdaFunctions/coordinator/coordinator', function () {
             },
             {
               name: 'message',
-              type: 'eventFromMessage',
+              type: constants.componentType.EVENT_FROM_MESSAGE,
               concurrency: null,
+              maxConcurrency: 10,
               queuedMessageCount: null
             },
             {
               name: 'invocation',
-              type: 'eventFromInvocation',
+              type: constants.componentType.EVENT_FROM_INVOCATION,
               concurrency: null
             }
           ]

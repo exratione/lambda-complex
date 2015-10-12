@@ -6,29 +6,45 @@ components created on deployment are:
 
 * `simple-<deployId>-MessageTransformerQueue` SQS queue.
 * `simple-<deployId>-MessageProcessorQueue` SQS queue.
+* `simple-<deployId>-MessageTransformerConcurrencyQueue` SQS queue.
+* `simple-<deployId>-MessageProcessorConcurrencyQueue` SQS queue.
+* `simple-<deployId>-LambdaComplexCoordinatorConcurrencyQueue` SQS queue.
+* `simple-<deployId>-LambdaComplexInvokerConcurrencyQueue` SQS queue.
 * `simple-<deployId>-MessageTransformer-<assignedId>` Lambda function.
 * `simple-<deployId>-MessageProcessor-<assignedId>` Lambda function.
 * `simple-<deployId>-InvokedProcessor-<assignedId>` Lambda function.
 * `simple-<deployId>-LambdaComplexCoordinator-<assignedId>` Lambda function.
 * `simple-<deployId>-LambdaComplexInvoker-<assignedId>` Lambda function.
 
+## How the Application Functions
+
+The `simple-<deployId>-LambdaComplexCoordinator-<assignedId>` Lambda function
+constantly invokes itself to monitors queues and invoke other Lambda functions
+in response to the presence of queue messages. The entry point for data into the
+application is the `simple-<deployId>-MessageTransformerQueue` queue. Messages
+added there will cause the coordinator to invoke the
+`simple-<deployId>-MessageTransformer-<assignedId>` Lambda function once per
+message.
+
 The `simple-<deployId>-MessageTransformer-<assignedId>` Lambda function consumes
-messages from the `simple-<deployId>-MessageTransformerQueue` queue, alters the
+a message from the `simple-<deployId>-MessageTransformerQueue` queue, alters the
 message contents, and then passes that data on to either the
 `simple-<deployId>-MessageProcessor-<assignedId>` function or the
 `simple-<deployId>-InvokedProcessor-<assignedId>` Lambda function depending on
 the length of the contents.
 
 If sending the data to the `simple-<deployId>-MessageProcessor-<assignedId>`
-function then it is send by adding a message containing the data to the
-`simple-<deployId>-MessageProcessorQueue`.
+function it adds a message containing the data to the
+`simple-<deployId>-MessageProcessorQueue` queue.
 
 If sending the data to the `simple-<deployId>-InvokedProcessor-<assignedId>`
-function, then that function is invoked directly.
+function, then it invokes that function directly.
 
 Both of the processor Lambda functions use the same underlying NPM package and
 function. The only difference is how they are invoked, either directly or in
 response to a queue message.
+
+The processor function simply logs the message it receives and then exits.
 
 ## Illustrating the Basics
 
@@ -61,6 +77,6 @@ grunt deploy --config-path=examples/simple/applicationConfig.js
 
 ## Setting the Application in Motion
 
-Once deployment is complete, add messages to the
-`simple-<deployId>-MessageTransformer-<assignedId>` queue to see the Lambda
-functions triggered in response. The message body can consist of any valid JSON.
+Once deployment is complete, add messages containing any valid JSON string to
+the `simple-<deployId>-MessageTransformer-<assignedId>` queue to see the Lambda
+functions triggered in response.

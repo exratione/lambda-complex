@@ -117,6 +117,11 @@ module.exports = {
     //
     // A coordinator may well run longer than this interval before invoking the
     // next coordinator if it has a lot to do.
+    //
+    // The shorter the interval the more frequently that new component Lambda
+    // function instances will be launched in response to messages in their
+    // queues. This goes a long way towards determining the pace of the
+    // application for small applications and small amounts of data.
     minInterval: 10
   },
 
@@ -182,9 +187,17 @@ module.exports = {
       // Type of the component.
       type: 'eventFromMessage',
 
+      // The maximum number of Lambda function instances for this component that
+      // will run at any one time. This, coupled with coordinator.minInterval,
+      // goes towards determining the rate at which this component's message
+      // queue will drain.
+      maxConcurrency: 10,
+
       // Seconds to wait for a message to show up in the queue before giving up.
-      // This should not be high as it cuts into processing time. But setting a
-      // few seconds can smooth out the operation of an application.
+      // This should not be high as it cuts into short time limit for a Lambda.
+      // function. Setting a few seconds may smooth out the operation of an
+      // application in future versions of Lambda Complex, but at the present
+      // time should make no difference either way.
       queueWaitTime: 5,
 
       // Define where the results from this Lambda function are sent. The data

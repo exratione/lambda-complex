@@ -206,21 +206,41 @@ describe('lib/lambdaFunctions/coordinator/common', function () {
           {
             name: 'a',
             type: constants.componentType.EVENT_FROM_MESSAGE,
+            concurrency: 1,
+            maxConcurrency: 3,
             queuedMessageCount: 5
           },
           {
             name: 'b',
-            type: constants.componentType.EVENT_FROM_INVOCATION
+            type: constants.componentType.EVENT_FROM_INVOCATION,
+            concurrency: 2,
           }
         ]
       };
     });
 
-    it('returns invocation counts', function () {
+    it('returns invocation counts with concurrency limit', function () {
       var invocationCounts = [
         {
           name: applicationStatus.components[0].name,
-          count: applicationStatus.components[0].queuedMessageCount
+          // 2 because maxConcurrency - concurrency is less than
+          // queuedMessageCount.
+          count: 2
+        }
+      ];
+
+      expect(common.getInvocationCounts(applicationStatus)).to.eql(invocationCounts);
+    });
+
+    it('returns invocation counts with queuedMessageCount limit', function () {
+      applicationStatus.components[0].maxConcurrency = 100;
+
+      var invocationCounts = [
+        {
+          name: applicationStatus.components[0].name,
+          // 5 because maxConcurrency - concurrency is now greater than
+          // queuedMessageCount.
+          count: 5
         }
       ];
 
@@ -231,6 +251,13 @@ describe('lib/lambdaFunctions/coordinator/common', function () {
       var invocationCounts = [];
 
       applicationStatus.components[0].queuedMessageCount = null;
+      expect(common.getInvocationCounts(applicationStatus)).to.eql(invocationCounts);
+    });
+
+    it('skips null concurrency', function () {
+      var invocationCounts = [];
+
+      applicationStatus.components[0].concurrency = null;
       expect(common.getInvocationCounts(applicationStatus)).to.eql(invocationCounts);
     });
   });

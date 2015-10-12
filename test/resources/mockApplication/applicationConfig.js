@@ -53,7 +53,7 @@ module.exports = {
     {
       name: 'message',
       type: 'eventFromMessage',
-      queue: 'queue1',
+      maxConcurrency: 10,
       queueWaitTime: 0,
       // Routing will be defined in tests as needed.
       // routing: undefined,

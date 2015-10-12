@@ -63,6 +63,7 @@ module.exports = {
       name: 'messageProcessor',
       type: 'eventFromMessage',
       queueWaitTime: 5,
+      maxConcurrency: 10,
       // Since this defines no routing, this is a dead end: events are delivered
       // here and no further processing results.
       // routing: undefined,
@@ -78,6 +79,7 @@ module.exports = {
     {
       name: 'messageTransformer',
       type: 'eventFromMessage',
+      maxConcurrency: 10,
       queueWaitTime: 5,
       /**
        * A routing function to send data resulting from this component's Lambda
