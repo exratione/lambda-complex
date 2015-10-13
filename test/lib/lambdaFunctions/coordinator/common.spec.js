@@ -224,8 +224,8 @@ describe('lib/lambdaFunctions/coordinator/common', function () {
         {
           name: applicationStatus.components[0].name,
           // 2 because maxConcurrency - concurrency is less than
-          // queuedMessageCount.
-          count: 2
+          // queuedMessageCount. Then 1 because there are 2 coordinators.
+          count: 1
         }
       ];
 
@@ -238,9 +238,10 @@ describe('lib/lambdaFunctions/coordinator/common', function () {
       var invocationCounts = [
         {
           name: applicationStatus.components[0].name,
-          // 5 because maxConcurrency - concurrency is now greater than
-          // queuedMessageCount.
-          count: 5
+          // 3 because maxConcurrency - concurrency is now greater than
+          // queuedMessageCount. There are 5 messages, but 2 coordinators, and
+          // so each does 3 rounding up.
+          count: 3
         }
       ];
 

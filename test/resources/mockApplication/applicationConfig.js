@@ -25,7 +25,7 @@ module.exports = {
   },
 
   coordinator: {
-    coordinatorConcurrency: 1,
+    coordinatorConcurrency: 2,
     // Keep these low to make inspection of test data easier.
     maxApiConcurrency: 4,
     maxInvocationCount: 6,

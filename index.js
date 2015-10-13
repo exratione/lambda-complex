@@ -51,7 +51,7 @@ exports.build = function (config, callback) {
 };
 
 /**
- * Deploy a built Lambda Complex application.
+ * Build and deploy a Lambda Complex application.
  *
  * @param {Object} config The application configuration.
  * @param {Function} callback Of the form function (error, results).
@@ -59,16 +59,10 @@ exports.build = function (config, callback) {
 exports.deploy = function (config, callback) {
   var results;
 
-  // Validate the configuration first of all.
-  var validationErrors = configValidator.validate(config);
-  if (validationErrors.length) {
-    return callback(new Error(util.format(
-      'Invalid configuration: %s',
-      JSON.stringify(validationErrors, null, '  ')
-    )));
-  }
-
   async.series({
+    build: function (asyncCallback) {
+      exports.build(config, asyncCallback);
+    },
     uploadLambdaFunctions: function (asyncCallback) {
       s3Utilities.uploadLambdaFunctions(config, asyncCallback);
     },

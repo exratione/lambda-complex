@@ -73,6 +73,7 @@ describe('lib/deploy/cloudFormationUtilities', function () {
     var arnMap;
     var stackDescription;
     var switchoverFn;
+    var minInterval;
 
     beforeEach(function () {
       stackDescription = {
@@ -88,6 +89,10 @@ describe('lib/deploy/cloudFormationUtilities', function () {
         a: 'b'
       };
 
+      // Cut down the min interval so that the tests run quickly.
+      minInterval = applicationConfig.coordinator.minInterval;
+      applicationConfig.coordinator.minInterval = 1;
+
       sandbox.stub(applicationConfig.deployment, 'switchoverFunction').yields();
 
       switchoverFn = cloudFormationUtilities.getSwitchoverFunction(
@@ -99,39 +104,66 @@ describe('lib/deploy/cloudFormationUtilities', function () {
       sandbox.stub(utilities, 'invoke').yields();
     });
 
+    afterEach(function () {
+      applicationConfig.coordinator.minInterval = minInterval;
+    });
+
+
+    function checkCalls () {
+      sinon.assert.calledWith(
+        s3Utilities.uploadArnMap,
+        arnMap,
+        resources.getConfigMatcher(applicationConfig),
+        sinon.match.func
+      );
+      sinon.assert.callCount(
+        utilities.invoke,
+        applicationConfig.coordinator.coordinatorConcurrency
+      );
+      sinon.assert.calledWith(
+        utilities.invoke,
+        utilities.getLambdaFunctionArn(
+          constants.coordinator.NAME,
+          arnMap
+        ),
+        {},
+        sinon.match.func
+      );
+      sinon.assert.calledWith(
+        applicationConfig.deployment.switchoverFunction,
+        stackDescription,
+        resources.getConfigMatcher(applicationConfig),
+        sinon.match.func
+      );
+      sinon.assert.callOrder(
+        s3Utilities.uploadArnMap,
+        utilities.invoke,
+        applicationConfig.deployment.switchoverFunction
+      );
+    }
+
     it('creates function that behaves correctly', function (done) {
       switchoverFn(stackDescription, function (error) {
-        sinon.assert.calledWith(
-          s3Utilities.uploadArnMap,
-          arnMap,
-          resources.getConfigMatcher(applicationConfig),
-          sinon.match.func
-        );
-        sinon.assert.callCount(
-          utilities.invoke,
-          applicationConfig.coordinator.coordinatorConcurrency
-        );
-        sinon.assert.calledWith(
-          utilities.invoke,
-          utilities.getLambdaFunctionArn(
-            constants.coordinator.NAME,
-            arnMap
-          ),
-          {},
-          sinon.match.func
-        );
-        sinon.assert.calledWith(
-          applicationConfig.deployment.switchoverFunction,
-          stackDescription,
-          resources.getConfigMatcher(applicationConfig),
-          sinon.match.func
-        );
-        sinon.assert.callOrder(
-          s3Utilities.uploadArnMap,
-          utilities.invoke,
-          applicationConfig.deployment.switchoverFunction
-        );
+        checkCalls();
+        done(error);
+      });
+    });
 
+    it('creates function that behaves correctly when minInterval = 0', function (done) {
+      applicationConfig.coordinator.minInterval = 0;
+
+      switchoverFn(stackDescription, function (error) {
+        checkCalls();
+        done(error);
+      });
+    });
+
+    it('creates function that behaves correctly when coordinatorConcurrency = 1', function (done) {
+      applicationConfig.coordinator.coordinatorConcurrency = 1;
+
+      switchoverFn(stackDescription, function (error) {
+        checkCalls();
+        applicationConfig.coordinator.coordinatorConcurrency = 2;
         done(error);
       });
     });

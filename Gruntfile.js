@@ -50,20 +50,6 @@ module.exports = function (grunt) {
   grunt.loadNpmTasks('grunt-eslint');
   grunt.loadNpmTasks('grunt-mocha-test');
 
-  grunt.registerTask('build', [
-    'clean',
-    'validate-configuration',
-    'install-lambda-functions',
-    'package-lambda-functions',
-    'generate-cloudformation-template'
-  ]);
-
-  grunt.registerTask('deploy', [
-    'build',
-    'upload-lambda-functions',
-    'deploy-cloudformation-stack'
-  ]);
-
   grunt.registerTask('test', [
     'clean',
     'eslint',

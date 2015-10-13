@@ -29,7 +29,7 @@ module.exports = {
   },
 
   coordinator: {
-    coordinatorConcurrency: 1,
+    coordinatorConcurrency: 2,
     maxApiConcurrency: 10,
     maxInvocationCount: 20,
     minInterval: 10

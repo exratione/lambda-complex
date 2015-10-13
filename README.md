@@ -4,15 +4,16 @@ Lambda Complex is a Node.js framework for applications that run entirely within
 Lambda, SQS, and other high abstraction layer AWS services. The high points of
 Lambda Complex:
 
-* Assemble applications from any Node.js Lambda function implementations.
-* Use any NPM module that exports one or more Lambda function handlers, or write
-your own.
-* Configure the Lambda Complex application to pass data between Lambda function
-invocations or accept data from SQS queues.
-* Lambda complex applications are deployed as CloudFormation stacks.
+* Assemble applications from Node.js Lambda function implementations. Use any
+NPM module that exports one or more Lambda function handlers, or write your own.
+* Configure the Lambda Complex application to pass data between Lambda
+function invocations in potentially complicated, result-dependent ways.
+* Each Lambda function in the application can be linked to an SQS queue, and is
+then invoked in response to messages sent to that queue.
+* A Lambda complex application is deployed as a CloudFormation stack.
 
-A Lambda Complex application is deployed from a developer machine, or from an
-Amazon Linux EC2 instance if binary NPM modules are required, and no server
+A Lambda Complex application can be deployed from a developer machine, or from
+an Amazon Linux EC2 instance [if binary NPM modules are required][5]. No server
 infrastructure beyond that is needed.
 
 The typical Lambda Complex application consists of a few small Node.js packages
@@ -49,6 +50,26 @@ help in constructing your own application:
 
 * An [example application configuration file][1] with documentation.
 * A [simple example application][2].
+
+## How Does Lambda Complex Compare With JAWS?
+
+[JAWS][6] is great. Lambda Complex achieves much the same outcome, which is to
+say constructing an application that resides entirely in AWS Lambda and related
+AWS services. The two are different in near every design choice at the detail
+level, however.
+
+At the present time Lambda Complex is more suited to:
+
+* Slower, non-time-critical applications, such as static content generation.
+* Applications that make use of existing third party Node.js Lambda functions.
+* People who like monitoring application state via SQS queues attributes.
+* People who don't mind a lack of structure in their frameworks.
+
+JAWS is more suited to:
+
+* Faster applications, such as APIs.
+* Applications that must use non-Node.js Lambda functions.
+* People who like a little more structure in their frameworks.
 
 ## Basic Concepts
 
@@ -349,6 +370,30 @@ take a look at its documentation. In short, the following occurs:
 * Run the provided `config.deployment.switchoverFunction`.
 * Delete any previous instances of the stack once the switchover is done.
 
+#### Programmatic Interface for Deployment
+
+Deployment can be managed programmatically:
+
+```
+var lambdaComplex = require('lambda-complex');
+var config = require('/path/to/applicationConfig');
+
+lambdaComplex.deploy(config, function (error, results) {
+  if (error) {
+    console.error(error);
+  }
+
+  console.info(results);
+});
+```
+
+#### Binary NPM Module Limitations
+
+Some NPM modules build local binaries on installation. If any of the component
+Lambda function implementations require binary modules, then the Lambda Complex
+application [must be deployed from an Amazon Linux EC2 instance][5] to ensure
+that the environments match.
+
 ### Shut Down an Application
 
 Since the application includes self-invoking Lambda functions, the only sure
@@ -373,7 +418,13 @@ application stack.
 
 Lambda functions write to CloudWatch Logs and other attributes such as number
 of invocations and errors can be monitored via the CloudWatch API. The component
-SQS queues can also be monitored via CloudWatch.
+SQS queues can also be monitored via CloudWatch, and the concurrency SQS queues
+are especially useful when monitoring application state.
+
+The coordinator SQS concurrency queue should never be empty, for example, as
+this indicates that the application has failed and is no longer running.
+Component queues used to introduce data to the application would be backing up
+at this point as well.
 
 A number of third party services can be used to build monitors and alerts based
 on these logs and metrics.
@@ -383,29 +434,23 @@ on these logs and metrics.
 Lambda Complex remains in an early stage of development. Moving forward the
 following are intended.
 
-### Concurrency Limits
-
-Add the ability to count concurrency of Lambda function invocations, and limit
-concurrency for queue-based components.
-
 ### Monitoring and Log Streaming
 
 A robust monitoring and log streaming module is needed, built on the CloudWatch
 APIs. A programmatic interface to how the applications is working (or not
 working) is a necessary part of a number of further refinements.
 
+### Deletion of Old CloudWatch Log Groups
+
+Currently CloudWatch log groups are not deleted when an application stack is
+deleted. This may or may not be desired, and so a deletion option or deletion
+tool would be useful.
+
 ### Detection of Coordinator Failure on Deployment
 
 The ability to detect whether or not the coordinator runs successfully when a
 new version is deployed is much needed. This should count as a failed
 deployment, and thus not trigger switchover and deletion of the existing stack.
-
-### Concurrent Coordinators
-
-For robustness, multiple coordinator invocations should run concurrently, each
-taking a fraction of the load of invocation. This should be coupled with
-CloudWatch monitoring to determine the number of running coordinators, and thus
-restore any that have failed.
 
 ### More Component Types
 
@@ -424,3 +469,5 @@ Tools to stress test a local or deployed application.
 [2]: ./examples/simple
 [3]: http://docs.aws.amazon.com/AWSJavaScriptSDK/guide/node-configuring.html
 [4]: https://github.com/exratione/cloudformation-deploy
+[5]: https://aws.amazon.com/blogs/compute/nodejs-packages-in-lambda/
+[6]: https://github.com/jaws-framework/JAWS

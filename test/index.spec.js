@@ -84,6 +84,7 @@ describe('index', function () {
     beforeEach(function () {
       results = {};
 
+      sandbox.stub(index, 'build').yields();
       sandbox.stub(s3Utilities, 'uploadLambdaFunctions').yields();
       sandbox.stub(cloudFormationUtilities, 'deployStack').yields(null, results);
     });
@@ -93,14 +94,15 @@ describe('index', function () {
         expect(obtainedResults).to.equal(results);
 
         sinon.assert.callOrder(
-          applicationConfigValidator.validate,
+          index.build,
           s3Utilities.uploadLambdaFunctions,
           cloudFormationUtilities.deployStack
         );
 
         sinon.assert.calledWith(
-          applicationConfigValidator.validate,
-          applicationConfig
+          index.build,
+          applicationConfig,
+          sinon.match.func
         );
         sinon.assert.calledWith(
           s3Utilities.uploadLambdaFunctions,

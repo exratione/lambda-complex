@@ -17,6 +17,8 @@ describe('lib/lambdaFunctions/coordinator/coordinator', function () {
   var common;
   var constants;
   var coordinator;
+  var event;
+  var incrementedEvent;
   var sandbox;
   var utilities;
 
@@ -55,6 +57,10 @@ describe('lib/lambdaFunctions/coordinator/coordinator', function () {
 
     arnMap = resources.getMockArnMap(applicationConfig);
     coordinator.arnMap = arnMap;
+    event = {};
+    incrementedEvent = {
+      generation: 1
+    };
   });
 
   afterEach(function () {
@@ -145,13 +151,79 @@ describe('lib/lambdaFunctions/coordinator/coordinator', function () {
         done(error);
       });
     });
+  });
 
+  describe('ensureCoordinatorConcurrency', function () {
+    var applicationStatus;
+
+    beforeEach(function () {
+      applicationStatus = {
+        components: [
+          {
+            name: constants.coordinator.NAME,
+            type: constants.componentType.INTERNAL,
+            concurrency: 1
+          }
+        ]
+      };
+
+      // Doesn't run on the first generation.
+      incrementedEvent.generation = 2;
+
+      sandbox.stub(utilities, 'invoke').yields();
+    });
+
+    it('invokes an additional coordinator', function (done) {
+      coordinator.ensureCoordinatorConcurrency(
+        applicationStatus,
+        incrementedEvent,
+        function (error) {
+          sinon.assert.calledOnce(utilities.invoke);
+          sinon.assert.calledWith(
+            utilities.invoke,
+            utilities.getLambdaFunctionArn(
+              constants.coordinator.NAME,
+              arnMap
+            ),
+            incrementedEvent,
+            sinon.match.func
+          );
+
+          done(error);
+        }
+      );
+    });
+
+    it('skips invocation if unneeded', function (done) {
+      applicationStatus.components[0].concurrency = 2;
+
+      coordinator.ensureCoordinatorConcurrency(
+        applicationStatus,
+        incrementedEvent,
+        function (error) {
+          sinon.assert.notCalled(utilities.invoke);
+          done(error);
+        }
+      );
+    });
+
+    it('skips over this step on generation 1', function (done) {
+      incrementedEvent.generation = 1;
+
+      coordinator.ensureCoordinatorConcurrency(
+        applicationStatus,
+        incrementedEvent,
+        function (error) {
+          sinon.assert.notCalled(utilities.invoke);
+          done(error);
+        }
+      );
+    });
   });
 
   describe('handler', function () {
     var applicationStatus;
     var invocationCounts;
-    var event;
     var context;
 
     beforeEach(function () {
@@ -159,7 +231,6 @@ describe('lib/lambdaFunctions/coordinator/coordinator', function () {
         components: []
       };
       invocationCounts = [];
-      event = {};
       context = {
         done: sandbox.stub()
       };
@@ -176,6 +247,7 @@ describe('lib/lambdaFunctions/coordinator/coordinator', function () {
         null,
         applicationStatus
       );
+      sandbox.stub(coordinator, 'ensureCoordinatorConcurrency').yields();
       sandbox.stub(utilities, 'decrementConcurrencyCount').yields();
       sandbox.stub(utilities, 'invoke').yields();
     });
@@ -197,6 +269,12 @@ describe('lib/lambdaFunctions/coordinator/coordinator', function () {
         );
         sinon.assert.calledWith(
           coordinator.determineApplicationStatus,
+          sinon.match.func
+        );
+        sinon.assert.calledWith(
+          coordinator.ensureCoordinatorConcurrency,
+          applicationStatus,
+          incrementedEvent,
           sinon.match.func
         );
         sinon.assert.calledWith(
@@ -228,7 +306,7 @@ describe('lib/lambdaFunctions/coordinator/coordinator', function () {
             constants.coordinator.NAME,
             arnMap
           ),
-          event,
+          incrementedEvent,
           sinon.match.func
         );
         sinon.assert.calledWith(
@@ -261,6 +339,12 @@ describe('lib/lambdaFunctions/coordinator/coordinator', function () {
           sinon.match.func
         );
         sinon.assert.calledWith(
+          coordinator.ensureCoordinatorConcurrency,
+          applicationStatus,
+          incrementedEvent,
+          sinon.match.func
+        );
+        sinon.assert.calledWith(
           common.getInvocationCounts,
           applicationStatus
         );
@@ -284,7 +368,7 @@ describe('lib/lambdaFunctions/coordinator/coordinator', function () {
             constants.coordinator.NAME,
             arnMap
           ),
-          event,
+          incrementedEvent,
           sinon.match.func
         );
         sinon.assert.calledWith(
@@ -327,7 +411,32 @@ describe('lib/lambdaFunctions/coordinator/coordinator', function () {
             constants.coordinator.NAME,
             arnMap
           ),
-          event,
+          incrementedEvent,
+          sinon.match.func
+        );
+        sinon.assert.calledWith(
+          context.done,
+          sinon.match.instanceOf(Error)
+        );
+
+        done();
+      }, 20);
+    });
+
+    it('still calls invoke on ensureCoordinatorConcurrency failure', function (done) {
+      sandbox.stub(console, 'error');
+      coordinator.ensureCoordinatorConcurrency.yields(new Error());
+      coordinator.handler(event, context);
+
+      setTimeout(function () {
+        sinon.assert.calledOnce(console.error);
+        sinon.assert.calledWith(
+          utilities.invoke,
+          utilities.getLambdaFunctionArn(
+            constants.coordinator.NAME,
+            arnMap
+          ),
+          incrementedEvent,
           sinon.match.func
         );
         sinon.assert.calledWith(
@@ -352,7 +461,7 @@ describe('lib/lambdaFunctions/coordinator/coordinator', function () {
             constants.coordinator.NAME,
             arnMap
           ),
-          event,
+          incrementedEvent,
           sinon.match.func
         );
         sinon.assert.calledWith(
@@ -377,7 +486,7 @@ describe('lib/lambdaFunctions/coordinator/coordinator', function () {
             constants.coordinator.NAME,
             arnMap
           ),
-          event,
+          incrementedEvent,
           sinon.match.func
         );
         sinon.assert.calledWith(
@@ -402,7 +511,7 @@ describe('lib/lambdaFunctions/coordinator/coordinator', function () {
             constants.coordinator.NAME,
             arnMap
           ),
-          event,
+          incrementedEvent,
           sinon.match.func
         );
         sinon.assert.calledWith(
@@ -430,6 +539,31 @@ describe('lib/lambdaFunctions/coordinator/coordinator', function () {
       }, 20);
     });
 
+    it('correctly increments higher generation count', function (done) {
+      event = {
+        generation: 1200
+      };
+      coordinator.handler(event, context);
+
+      setTimeout(function () {
+        sinon.assert.calledWith(
+          utilities.invoke,
+          utilities.getLambdaFunctionArn(
+            constants.coordinator.NAME,
+            arnMap
+          ),
+          {
+            generation: 1201
+          },
+          sinon.match.func
+        );
+        sinon.assert.calledWith(
+          context.done
+        );
+
+        done();
+      }, 20);
+    });
 
   });
 

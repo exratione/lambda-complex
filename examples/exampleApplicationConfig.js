@@ -93,12 +93,19 @@ module.exports = {
   coordinator: {
     // The maximum number of concurrent coordinators to run.
     //
-    // At present limited to 1.
+    // Each coordinator will carry out its fraction of the overall work to be
+    // done. E.g. for 2 concurrent coordinators, each will undertake half of the
+    // necessary invocations.
     //
-    // In future versions more than one coordinator will be useful for
-    // redundancy, since the application relies on coordinators invoking
-    // themselves.
-    coordinatorConcurrency: 1,
+    // More than one coordinator provides a little redundancy against the random
+    // slings and arrows of AWS API failure. The application relies on
+    // coordinators invoking themselves, and while the coordinator code tries to
+    // be bulletproof, there are still a number of points at which failure can
+    // occur.
+    //
+    // So long as one coordinator is running, it will invoke as many other
+    // instances as are needed to maintain this specified concurrency.
+    coordinatorConcurrency: 2,
 
     // How many AWS API requests can the coordinator make at any one time?
     // Too many and you'll tend to see errors.
