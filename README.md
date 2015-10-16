@@ -1,8 +1,11 @@
 # Lambda Complex
 
 Lambda Complex is a Node.js framework for applications that run entirely within
-Lambda, SQS, and other high abstraction layer AWS services. The high points of
-Lambda Complex:
+Lambda, SQS, and other high abstraction layer AWS services. It is well suited to
+non-realtime content generation needs, such as high concurrency file generation
+or other workflows carried out in response to messages placed into an SQS queue.
+
+The high points of Lambda Complex:
 
 * Assemble applications from Node.js Lambda function implementations. Use any
 NPM module that exports one or more Lambda function handlers, or write your own.
@@ -39,9 +42,6 @@ scripts, no upgrade treadmill, no version conflicts: this particular combination
 of AWS services abstracts away all of that. Just design the application, write
 the code, write the configuration file, run the deployment script, and you are
 done and deployed, your application running.
-
-Lambda Complex is well suited to non-realtime content generation needs, such as
-high concurrency file creation in response to requests placed into an SQS queue.
 
 ## Examples
 
@@ -108,7 +108,7 @@ fast and with no intricate error handling.
 
 The component is a normal Lambda function, and event data is passed to the
 handler in the normal way. The component Lambda function is invoked by other
-component Lamdbda functions directly, without intervention of the coordinator.
+component Lambda functions directly, without intervention of the coordinator.
 
 The advantage of this is speed, not having to wait for a queue check, while the
 disadvantage that this component must be absolutely bulletproof or data and
@@ -183,7 +183,9 @@ little time to figure out whether or not this is a good plan for any specific
 use case.
 
 For each component you will need to write or use a third party Lambda function
-provided in an NPM package.
+provided in an NPM package. Plan for a component to accept all of its run-time
+configuration options, such as an environment specifier, resource names, and so
+on, via the event passed as an argument to the Lambda function handler.
 
 ## Create the Application Configuration File
 
@@ -215,7 +217,7 @@ Specify the necessary deployment details:
   },
 ```
 
-The most important, and potentially most complex, item here is the
+The most important and potentially most complex item here is the
 `switchoverFunction`. This is invoked after deployment of a new version of the
 application, but prior to deletion of the previous version of the application.
 It should be used to make any changes needed to switch resources to use the
@@ -333,6 +335,11 @@ exports.fn = function (event, context) {
 
 A function must invoke the `context` methods on completion to provide data that
 can be passed on to other components in the application.
+
+### Ensure Compatibility with the Supported Node.js Version
+
+AWS Lambda runs under a [specific version of Node.js][7]. Set up development and
+testing to ensure that your application can function in that environment.
 
 ### Set up AWS Credentials
 
@@ -465,9 +472,17 @@ Providing the ability to run an application locally.
 
 Tools to stress test a local or deployed application.
 
+### Better Support for Switchover of SQS Queues
+
+The process of switching delivery of data to new queues on each new deployment
+of an existing application is painful, and what happens to the messages in the
+old queues? They will get dropped as it stands. Helpers to make it easier
+to build a suitable switchover function would be useful.
+
 [1]: ./examples/exampleApplicationConfig.js
 [2]: ./examples/simple
 [3]: http://docs.aws.amazon.com/AWSJavaScriptSDK/guide/node-configuring.html
 [4]: https://github.com/exratione/cloudformation-deploy
 [5]: https://aws.amazon.com/blogs/compute/nodejs-packages-in-lambda/
 [6]: https://github.com/jaws-framework/JAWS
+[7]: http://docs.aws.amazon.com/lambda/latest/dg/current-supported-versions.html

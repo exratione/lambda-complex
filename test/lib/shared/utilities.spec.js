@@ -26,9 +26,6 @@ describe('lib/shared/utilities', function () {
 
     // Make sure we stub the AWS client functions used here.
     sandbox.stub(utilities.lambdaClient, 'invoke').yields();
-    sandbox.stub(utilities.s3Client, 'getObject').yields(null, {
-      Body: JSON.stringify(arnMap)
-    });
     // These will need to be redefined to return data for tests that use them.
     sandbox.stub(utilities.sqsClient, 'deleteMessage').yields();
     sandbox.stub(utilities.sqsClient, 'receiveMessage').yields();
@@ -848,24 +845,210 @@ describe('lib/shared/utilities', function () {
     });
   });
 
+  describe('getApplicationConfirmationS3Key', function () {
+    it('functions correctly', function () {
+      expect(utilities.getApplicationConfirmationS3Key(applicationConfig)).to.equal(
+        path.join(
+          utilities.getFullS3KeyPrefix(applicationConfig),
+          'confirm.txt'
+        )
+      );
+    });
+  });
+
+  describe('uploadApplicationConfirmation', function () {
+
+    beforeEach(function () {
+      sandbox.stub(utilities.s3Client, 'putObject').yields();
+    });
+
+    it('calls the AWS API as expected', function (done) {
+      utilities.uploadApplicationConfirmation(applicationConfig, function (error) {
+        sinon.assert.callCount(utilities.s3Client.putObject, 1);
+        sinon.assert.alwaysCalledWith(
+          utilities.s3Client.putObject,
+          {
+            Body: 'confirm',
+            Bucket: applicationConfig.deployment.s3Bucket,
+            ContentType: 'text/plain',
+            Key: utilities.getApplicationConfirmationS3Key(applicationConfig)
+          },
+          sinon.match.func
+        );
+
+        done(error);
+      });
+    });
+
+    it('retries the AWS API on failure', function (done) {
+      sandbox.stub(console, 'error');
+      utilities.s3Client.putObject.onCall(0).yields(new Error());
+
+      utilities.uploadApplicationConfirmation(applicationConfig, function (error) {
+        sinon.assert.callCount(console.error, 1);
+        sinon.assert.callCount(utilities.s3Client.putObject, 2);
+        sinon.assert.alwaysCalledWith(
+          utilities.s3Client.putObject,
+          {
+            Body: 'confirm',
+            Bucket: applicationConfig.deployment.s3Bucket,
+            ContentType: 'text/plain',
+            Key: utilities.getApplicationConfirmationS3Key(applicationConfig)
+          },
+          sinon.match.func
+        );
+
+        done(error);
+      });
+    });
+
+    it('calls back with error on persistent failure', function (done) {
+      sandbox.stub(console, 'error');
+      utilities.s3Client.putObject.yields(new Error());
+
+      utilities.uploadApplicationConfirmation(applicationConfig, function (error) {
+        expect(error).to.be.instanceOf(Error);
+
+        sinon.assert.callCount(console.error, 2);
+        sinon.assert.callCount(utilities.s3Client.putObject, 3);
+        sinon.assert.alwaysCalledWith(
+          utilities.s3Client.putObject,
+          {
+            Body: 'confirm',
+            Bucket: applicationConfig.deployment.s3Bucket,
+            ContentType: 'text/plain',
+            Key: utilities.getApplicationConfirmationS3Key(applicationConfig)
+          },
+          sinon.match.func
+        );
+
+        done();
+      });
+    });
+
+  });
+
+  describe('applicationConfirmationExists', function () {
+
+    beforeEach(function () {
+      sandbox.stub(utilities.s3Client, 'getObject').yields(null, {
+        Body: 'confirm'
+      });
+    });
+
+    it('calls the AWS API as expected', function (done) {
+      utilities.applicationConfirmationExists(applicationConfig, function (error, exists) {
+        expect(exists).to.eql(true);
+
+        sinon.assert.callCount(utilities.s3Client.getObject, 1);
+        sinon.assert.alwaysCalledWith(
+          utilities.s3Client.getObject,
+          {
+            Bucket: applicationConfig.deployment.s3Bucket,
+            Key: utilities.getApplicationConfirmationS3Key(applicationConfig)
+          },
+          sinon.match.func
+        );
+
+        done(error);
+      });
+    });
+
+    it('retries AWS API on non-404 failure', function (done) {
+      sandbox.stub(console, 'error');
+      utilities.s3Client.getObject.onCall(0).yields(new Error());
+
+      utilities.applicationConfirmationExists(applicationConfig, function (error, exists) {
+        expect(exists).to.eql(true);
+
+        sinon.assert.callCount(console.error, 1);
+        sinon.assert.callCount(utilities.s3Client.getObject, 2);
+        sinon.assert.alwaysCalledWith(
+          utilities.s3Client.getObject,
+          {
+            Bucket: applicationConfig.deployment.s3Bucket,
+            Key: utilities.getApplicationConfirmationS3Key(applicationConfig)
+          },
+          sinon.match.func
+        );
+
+        done(error);
+      });
+    });
+
+    it('calls back with error on persistent non-404 failure', function (done) {
+      sandbox.stub(console, 'error');
+      utilities.s3Client.getObject.yields(new Error());
+
+      utilities.applicationConfirmationExists(applicationConfig, function (error, exists) {
+        expect(error).to.be.instanceOf(Error);
+        expect(exists).to.eql(false);
+
+        sinon.assert.callCount(console.error, 2);
+        sinon.assert.callCount(utilities.s3Client.getObject, 3);
+        sinon.assert.alwaysCalledWith(
+          utilities.s3Client.getObject,
+          {
+            Bucket: applicationConfig.deployment.s3Bucket,
+            Key: utilities.getApplicationConfirmationS3Key(applicationConfig)
+          },
+          sinon.match.func
+        );
+
+        done();
+      });
+    });
+
+    it('calls back with false on 404 failure', function (done) {
+      var error = new Error();
+      error.statusCode = 404;
+
+      sandbox.stub(console, 'error');
+      utilities.s3Client.getObject.onCall(0).yields(error);
+
+      utilities.applicationConfirmationExists(applicationConfig, function (error, exists) {
+        expect(exists).to.eql(false);
+
+        sinon.assert.notCalled(console.error);
+        sinon.assert.calledOnce(utilities.s3Client.getObject);
+        sinon.assert.alwaysCalledWith(
+          utilities.s3Client.getObject,
+          {
+            Bucket: applicationConfig.deployment.s3Bucket,
+            Key: utilities.getApplicationConfirmationS3Key(applicationConfig)
+          },
+          sinon.match.func
+        );
+
+        done(error);
+      });
+    });
+
+  });
+
   describe('loadArnMap', function () {
+
+    beforeEach(function () {
+      sandbox.stub(utilities.s3Client, 'getObject').yields(null, {
+        Body: JSON.stringify(arnMap)
+      });
+    });
 
     it('calls the AWS API as expected', function (done) {
       utilities.loadArnMap(applicationConfig, function (error, loadedArnMap) {
-        expect(error).to.equal(null);
         expect(loadedArnMap).to.eql(arnMap);
 
         sinon.assert.callCount(utilities.s3Client.getObject, 1);
         sinon.assert.alwaysCalledWith(
           utilities.s3Client.getObject,
-          sinon.match({
+          {
             Bucket: applicationConfig.deployment.s3Bucket,
             Key: utilities.getArnMapS3Key(applicationConfig)
-          }),
+          },
           sinon.match.func
         );
 
-        done();
+        done(error);
       });
     });
 
@@ -875,24 +1058,44 @@ describe('lib/shared/utilities', function () {
       utilities.s3Client.getObject.onCall(0).yields(new Error());
 
       utilities.loadArnMap(applicationConfig, function (error, loadedArnMap) {
-        expect(error).to.equal(null);
         expect(loadedArnMap).to.eql(arnMap);
 
         sinon.assert.callCount(console.error, 1);
         sinon.assert.callCount(utilities.s3Client.getObject, 2);
         sinon.assert.alwaysCalledWith(
           utilities.s3Client.getObject,
-          sinon.match({
+          {
             Bucket: applicationConfig.deployment.s3Bucket,
             Key: utilities.getArnMapS3Key(applicationConfig)
-          }),
+          },
+          sinon.match.func
+        );
+
+        done(error);
+      });
+    });
+
+    it('calls back with error on persistent failure', function (done) {
+      sandbox.stub(console, 'error');
+      utilities.s3Client.getObject.yields(new Error());
+
+      utilities.loadArnMap(applicationConfig, function (error, loadedArnMap) {
+        expect(error).to.be.instanceOf(Error);
+
+        sinon.assert.callCount(console.error, 2);
+        sinon.assert.callCount(utilities.s3Client.getObject, 3);
+        sinon.assert.alwaysCalledWith(
+          utilities.s3Client.getObject,
+          {
+            Bucket: applicationConfig.deployment.s3Bucket,
+            Key: utilities.getArnMapS3Key(applicationConfig)
+          },
           sinon.match.func
         );
 
         done();
       });
     });
-
   });
 
 });

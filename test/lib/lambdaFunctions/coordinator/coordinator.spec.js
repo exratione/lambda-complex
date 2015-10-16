@@ -250,6 +250,7 @@ describe('lib/lambdaFunctions/coordinator/coordinator', function () {
       sandbox.stub(coordinator, 'ensureCoordinatorConcurrency').yields();
       sandbox.stub(utilities, 'decrementConcurrencyCount').yields();
       sandbox.stub(utilities, 'invoke').yields();
+      sandbox.stub(utilities, 'uploadApplicationConfirmation').yields();
     });
 
     it('calls expected functions', function (done) {
@@ -310,65 +311,8 @@ describe('lib/lambdaFunctions/coordinator/coordinator', function () {
           sinon.match.func
         );
         sinon.assert.calledWith(
-          context.done
-        );
-
-        done();
-      }, 20);
-    });
-
-    it('calls expected functions on increment failure', function (done) {
-      sandbox.stub(console, 'error');
-      utilities.incrementConcurrencyCount.yields(new Error());
-      coordinator.handler(event, context);
-
-      setTimeout(function () {
-        sinon.assert.calledWith(
-          utilities.loadArnMap,
+          utilities.uploadApplicationConfirmation,
           resources.getConfigMatcher(applicationConfig),
-          sinon.match.func
-        );
-        sinon.assert.calledWith(
-          utilities.incrementConcurrencyCount,
-          constants.coordinator.COMPONENT,
-          arnMap,
-          sinon.match.func
-        );
-        sinon.assert.calledWith(
-          coordinator.determineApplicationStatus,
-          sinon.match.func
-        );
-        sinon.assert.calledWith(
-          coordinator.ensureCoordinatorConcurrency,
-          applicationStatus,
-          incrementedEvent,
-          sinon.match.func
-        );
-        sinon.assert.calledWith(
-          common.getInvocationCounts,
-          applicationStatus
-        );
-        sinon.assert.calledWith(
-          common.invokeApplicationLambdaFunctions,
-          invocationCounts,
-          arnMap,
-          sinon.match.func
-        );
-        sinon.assert.calledWith(
-          common.ensureInterval,
-          sinon.match.typeOf('number'),
-          sinon.match.typeOf('number'),
-          context,
-          sinon.match.func
-        );
-        sinon.assert.notCalled(utilities.decrementConcurrencyCount);
-        sinon.assert.calledWith(
-          utilities.invoke,
-          utilities.getLambdaFunctionArn(
-            constants.coordinator.NAME,
-            arnMap
-          ),
-          incrementedEvent,
           sinon.match.func
         );
         sinon.assert.calledWith(
@@ -389,6 +333,33 @@ describe('lib/lambdaFunctions/coordinator/coordinator', function () {
         sinon.assert.notCalled(utilities.incrementConcurrencyCount);
         sinon.assert.notCalled(utilities.decrementConcurrencyCount);
         sinon.assert.notCalled(utilities.invoke);
+        sinon.assert.notCalled(utilities.uploadApplicationConfirmation);
+        sinon.assert.calledWith(
+          context.done,
+          sinon.match.instanceOf(Error)
+        );
+
+        done();
+      }, 20);
+    });
+
+    it('still calls invoke on incrementConcurrencyCount failure', function (done) {
+      sandbox.stub(console, 'error');
+      utilities.incrementConcurrencyCount.yields(new Error());
+      coordinator.handler(event, context);
+
+      setTimeout(function () {
+        sinon.assert.calledOnce(console.error);
+        sinon.assert.calledWith(
+          utilities.invoke,
+          utilities.getLambdaFunctionArn(
+            constants.coordinator.NAME,
+            arnMap
+          ),
+          incrementedEvent,
+          sinon.match.func
+        );
+        sinon.assert.notCalled(utilities.uploadApplicationConfirmation);
         sinon.assert.calledWith(
           context.done,
           sinon.match.instanceOf(Error)
@@ -414,6 +385,7 @@ describe('lib/lambdaFunctions/coordinator/coordinator', function () {
           incrementedEvent,
           sinon.match.func
         );
+        sinon.assert.notCalled(utilities.uploadApplicationConfirmation);
         sinon.assert.calledWith(
           context.done,
           sinon.match.instanceOf(Error)
@@ -439,6 +411,7 @@ describe('lib/lambdaFunctions/coordinator/coordinator', function () {
           incrementedEvent,
           sinon.match.func
         );
+        sinon.assert.notCalled(utilities.uploadApplicationConfirmation);
         sinon.assert.calledWith(
           context.done,
           sinon.match.instanceOf(Error)
@@ -464,6 +437,7 @@ describe('lib/lambdaFunctions/coordinator/coordinator', function () {
           incrementedEvent,
           sinon.match.func
         );
+        sinon.assert.notCalled(utilities.uploadApplicationConfirmation);
         sinon.assert.calledWith(
           context.done,
           sinon.match.instanceOf(Error)
@@ -489,6 +463,7 @@ describe('lib/lambdaFunctions/coordinator/coordinator', function () {
           incrementedEvent,
           sinon.match.func
         );
+        sinon.assert.notCalled(utilities.uploadApplicationConfirmation);
         sinon.assert.calledWith(
           context.done,
           sinon.match.instanceOf(Error)
@@ -514,6 +489,7 @@ describe('lib/lambdaFunctions/coordinator/coordinator', function () {
           incrementedEvent,
           sinon.match.func
         );
+        sinon.assert.notCalled(utilities.uploadApplicationConfirmation);
         sinon.assert.calledWith(
           context.done,
           sinon.match.instanceOf(Error)
@@ -530,6 +506,7 @@ describe('lib/lambdaFunctions/coordinator/coordinator', function () {
 
       setTimeout(function () {
         sinon.assert.calledOnce(console.error);
+        sinon.assert.notCalled(utilities.uploadApplicationConfirmation);
         sinon.assert.calledWith(
           context.done,
           sinon.match.instanceOf(Error)
@@ -557,6 +534,33 @@ describe('lib/lambdaFunctions/coordinator/coordinator', function () {
           },
           sinon.match.func
         );
+        sinon.assert.calledWith(
+          context.done
+        );
+
+        done();
+      }, 20);
+    });
+
+    it('does not call uploadApplicationConfirmation on higher generation count', function (done) {
+      event = {
+        generation: 1200
+      };
+      coordinator.handler(event, context);
+
+      setTimeout(function () {
+        sinon.assert.calledWith(
+          utilities.invoke,
+          utilities.getLambdaFunctionArn(
+            constants.coordinator.NAME,
+            arnMap
+          ),
+          {
+            generation: 1201
+          },
+          sinon.match.func
+        );
+        sinon.assert.notCalled(utilities.uploadApplicationConfirmation);
         sinon.assert.calledWith(
           context.done
         );

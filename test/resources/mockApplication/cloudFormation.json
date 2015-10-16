@@ -99,6 +99,17 @@
                 {
                   "Effect": "Allow",
                   "Action": [
+                    "s3:GetObject",
+                    "s3:PutObject",
+                    "s3:PutObjectAcl"
+                  ],
+                  "Resource": [
+                    "arn:aws:s3:::lambda-complex/applications/mock/15/confirm.txt"
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
                     "logs:CreateLogGroup",
                     "logs:CreateLogStream",
                     "logs:PutLogEvents"
@@ -212,6 +223,17 @@
                   ],
                   "Resource": [
                     "arn:aws:s3:::lambda-complex/applications/mock/15/arnMap.json"
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:GetObject",
+                    "s3:PutObject",
+                    "s3:PutObjectAcl"
+                  ],
+                  "Resource": [
+                    "arn:aws:s3:::lambda-complex/applications/mock/15/confirm.txt"
                   ]
                 },
                 {

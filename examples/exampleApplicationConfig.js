@@ -118,7 +118,7 @@ module.exports = {
     // how many requests are made at one time.
     maxInvocationCount: 50,
 
-    // Minimim interval in seconds between invocations. Has to be equal to
+    // Minimum interval in seconds between invocations. Has to be equal to
     // or less than the execution time limit for a lambda function, see:
     // http://docs.aws.amazon.com/lambda/latest/dg/limits.html
     //

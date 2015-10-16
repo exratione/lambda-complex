@@ -9,7 +9,6 @@ var fs = require('fs-extra');
 // Local.
 var common = require('../../../lib/build/common');
 var constants = require('../../../lib/shared/constants');
-var cloudFormationUtilities = require('../../../lib/deploy/cloudFormationUtilities');
 var s3Utilities = require('../../../lib/deploy/s3Utilities');
 var utilities = require('../../../lib/shared/utilities');
 
@@ -18,14 +17,22 @@ var applicationConfig = require('../../resources/mockApplication/applicationConf
 
 describe('lib/deploy/cloudFormationUtilities', function () {
 
+  var clock;
+  var cloudFormationUtilities;
   var sandbox;
 
   beforeEach(function () {
     sandbox = sinon.sandbox.create();
+    clock = sandbox.useFakeTimers();
+    // Load after creating the clock so that we get the fake timers.
+    cloudFormationUtilities = require('../../../lib/deploy/cloudFormationUtilities');
+
+    sandbox.stub(utilities, 'applicationConfirmationExists').yields(null, true);
   });
 
   afterEach(function () {
     sandbox.restore();
+    delete require.cache[require.resolve('../../../lib/deploy/cloudFormationUtilities')];
   });
 
   describe('arnMapFromOutputs', function () {
@@ -69,11 +76,125 @@ describe('lib/deploy/cloudFormationUtilities', function () {
     });
   });
 
+  describe('startApplication', function () {
+    var arnMap;
+    var event;
+
+    beforeEach(function () {
+      arnMap = resources.getMockArnMap(applicationConfig);
+      event = {};
+
+      sandbox.stub(utilities, 'invoke').yields();
+    });
+
+    it('functions as expected', function (done) {
+      cloudFormationUtilities.startApplication(arnMap, applicationConfig, function (error) {
+        sinon.assert.callCount(
+          utilities.invoke,
+          applicationConfig.coordinator.coordinatorConcurrency
+        );
+        sinon.assert.calledWith(
+          utilities.invoke,
+          coordinatorArn = utilities.getLambdaFunctionArn(
+            constants.coordinator.NAME,
+            arnMap
+          ),
+          event,
+          sinon.match.func
+        );
+
+        done(error);
+      });
+
+      clock.tick(applicationConfig.coordinator.minInterval * 1000);
+    });
+
+    it('functions as expected when coordinatorConcurrency = 1', function (done) {
+      var coordinatorConcurrency = applicationConfig.coordinator.coordinatorConcurrency;
+      applicationConfig.coordinator.coordinatorConcurrency = 1;
+
+      cloudFormationUtilities.startApplication(arnMap, applicationConfig, function (error) {
+        sinon.assert.callCount(
+          utilities.invoke,
+          applicationConfig.coordinator.coordinatorConcurrency
+        );
+        sinon.assert.calledWith(
+          utilities.invoke,
+          coordinatorArn = utilities.getLambdaFunctionArn(
+            constants.coordinator.NAME,
+            arnMap
+          ),
+          event,
+          sinon.match.func
+        );
+
+        applicationConfig.coordinator.coordinatorConcurrency = coordinatorConcurrency;
+
+        done(error);
+      });
+
+      clock.tick(applicationConfig.coordinator.minInterval * 1000);
+    });
+  });
+
+  describe('awaitApplicationConfirmation', function () {
+
+    it('functions correctly', function (done) {
+      utilities.applicationConfirmationExists.onCall(0).yields(null, false);
+      cloudFormationUtilities.awaitApplicationConfirmation(applicationConfig, function (error) {
+        sinon.assert.calledTwice(utilities.applicationConfirmationExists);
+        sinon.assert.alwaysCalledWith(
+          utilities.applicationConfirmationExists,
+          resources.getConfigMatcher(applicationConfig),
+          sinon.match.func
+        );
+
+        done(error);
+      });
+
+      clock.tick(4000);
+    });
+
+    it('calls back with error', function (done) {
+      utilities.applicationConfirmationExists.yields(new Error());
+      cloudFormationUtilities.awaitApplicationConfirmation(applicationConfig, function (error) {
+        expect(error).to.be.instanceOf(Error);
+
+        sinon.assert.calledOnce(utilities.applicationConfirmationExists);
+        sinon.assert.alwaysCalledWith(
+          utilities.applicationConfirmationExists,
+          resources.getConfigMatcher(applicationConfig),
+          sinon.match.func
+        );
+
+        done();
+      });
+
+      clock.tick(2000);
+    });
+
+    it('times out', function (done) {
+      utilities.applicationConfirmationExists.yields(null, false);
+      cloudFormationUtilities.awaitApplicationConfirmation(applicationConfig, function (error) {
+        expect(error).to.be.instanceOf(Error);
+
+        sinon.assert.alwaysCalledWith(
+          utilities.applicationConfirmationExists,
+          resources.getConfigMatcher(applicationConfig),
+          sinon.match.func
+        );
+
+        done();
+      });
+
+      clock.tick((applicationConfig.coordinator.minInterval + 1) * 2 * 1000);
+    });
+  });
+
   describe('getSwitchoverFunction', function () {
     var arnMap;
     var stackDescription;
     var switchoverFn;
-    var minInterval;
 
     beforeEach(function () {
       stackDescription = {
@@ -89,25 +210,16 @@ describe('lib/deploy/cloudFormationUtilities', function () {
         a: 'b'
       };
 
-      // Cut down the min interval so that the tests run quickly.
-      minInterval = applicationConfig.coordinator.minInterval;
-      applicationConfig.coordinator.minInterval = 1;
-
+      sandbox.stub(s3Utilities, 'uploadArnMap').yields();
+      sandbox.stub(cloudFormationUtilities, 'startApplication').yields();
+      sandbox.stub(cloudFormationUtilities, 'awaitApplicationConfirmation').yields();
       sandbox.stub(applicationConfig.deployment, 'switchoverFunction').yields();
 
       switchoverFn = cloudFormationUtilities.getSwitchoverFunction(
         applicationConfig,
         applicationConfig.deploymentswitchoverFunction
       );
-
-      sandbox.stub(s3Utilities, 'uploadArnMap').yields();
-      sandbox.stub(utilities, 'invoke').yields();
     });
-
-    afterEach(function () {
-      applicationConfig.coordinator.minInterval = minInterval;
-    });
-
 
     function checkCalls () {
       sinon.assert.calledWith(
@@ -116,17 +228,15 @@ describe('lib/deploy/cloudFormationUtilities', function () {
         resources.getConfigMatcher(applicationConfig),
         sinon.match.func
       );
-      sinon.assert.callCount(
-        utilities.invoke,
-        applicationConfig.coordinator.coordinatorConcurrency
+      sinon.assert.calledWith(
+        cloudFormationUtilities.startApplication,
+        arnMap,
+        resources.getConfigMatcher(applicationConfig),
+        sinon.match.func
       );
       sinon.assert.calledWith(
-        utilities.invoke,
-        utilities.getLambdaFunctionArn(
-          constants.coordinator.NAME,
-          arnMap
-        ),
-        {},
+        cloudFormationUtilities.awaitApplicationConfirmation,
+        resources.getConfigMatcher(applicationConfig),
         sinon.match.func
       );
       sinon.assert.calledWith(
@@ -137,7 +247,8 @@ describe('lib/deploy/cloudFormationUtilities', function () {
       );
       sinon.assert.callOrder(
         s3Utilities.uploadArnMap,
-        utilities.invoke,
+        cloudFormationUtilities.startApplication,
+        cloudFormationUtilities.awaitApplicationConfirmation,
         applicationConfig.deployment.switchoverFunction
       );
     }
@@ -147,23 +258,28 @@ describe('lib/deploy/cloudFormationUtilities', function () {
         checkCalls();
         done(error);
       });
+
+      clock.tick(applicationConfig.coordinator.minInterval * 2 * 1000);
     });
 
     it('creates function that behaves correctly when minInterval = 0', function (done) {
+      var minInterval = applicationConfig.coordinator.minInterval;
       applicationConfig.coordinator.minInterval = 0;
 
       switchoverFn(stackDescription, function (error) {
         checkCalls();
+        applicationConfig.coordinator.minInterval = minInterval;
         done(error);
       });
     });
 
     it('creates function that behaves correctly when coordinatorConcurrency = 1', function (done) {
+      var coordinatorConcurrency = applicationConfig.coordinator.coordinatorConcurrency;
       applicationConfig.coordinator.coordinatorConcurrency = 1;
 
       switchoverFn(stackDescription, function (error) {
         checkCalls();
-        applicationConfig.coordinator.coordinatorConcurrency = 2;
+        applicationConfig.coordinator.coordinatorConcurrency = coordinatorConcurrency;
         done(error);
       });
     });
@@ -179,17 +295,15 @@ describe('lib/deploy/cloudFormationUtilities', function () {
           resources.getConfigMatcher(applicationConfig),
           sinon.match.func
         );
-        sinon.assert.callCount(
-          utilities.invoke,
-          applicationConfig.coordinator.coordinatorConcurrency
+        sinon.assert.calledWith(
+          cloudFormationUtilities.startApplication,
+          arnMap,
+          resources.getConfigMatcher(applicationConfig),
+          sinon.match.func
         );
         sinon.assert.calledWith(
-          utilities.invoke,
-          utilities.getLambdaFunctionArn(
-            constants.coordinator.NAME,
-            arnMap
-          ),
-          {},
+          cloudFormationUtilities.awaitApplicationConfirmation,
+          resources.getConfigMatcher(applicationConfig),
           sinon.match.func
         );
 
@@ -200,8 +314,30 @@ describe('lib/deploy/cloudFormationUtilities', function () {
       });
     });
 
-    it('skips user switchover function on error', function (done) {
+    it('skips user switchover function on uploadArnMap error', function (done) {
       s3Utilities.uploadArnMap.yields(new Error());
+
+      switchoverFn(stackDescription, function (error) {
+        expect(error).to.be.instanceOf(Error);
+        sinon.assert.notCalled(applicationConfig.deployment.switchoverFunction);
+
+        done();
+      });
+    });
+
+    it('skips user switchover function on startApplication error', function (done) {
+      cloudFormationUtilities.startApplication.yields(new Error());
+
+      switchoverFn(stackDescription, function (error) {
+        expect(error).to.be.instanceOf(Error);
+        sinon.assert.notCalled(applicationConfig.deployment.switchoverFunction);
+
+        done();
+      });
+    });
+
+    it('skips user switchover function on awaitApplicationConfirmation error', function (done) {
+      cloudFormationUtilities.awaitApplicationConfirmation.yields(new Error());
 
       switchoverFn(stackDescription, function (error) {
         expect(error).to.be.instanceOf(Error);
