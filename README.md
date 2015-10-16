@@ -108,7 +108,7 @@ fast and with no intricate error handling.
 
 The component is a normal Lambda function, and event data is passed to the
 handler in the normal way. The component Lambda function is invoked by other
-component Lamdbda functions directly, without intervention of the coordinator.
+component Lambda functions directly, without intervention of the coordinator.
 
 The advantage of this is speed, not having to wait for a queue check, while the
 disadvantage that this component must be absolutely bulletproof or data and
