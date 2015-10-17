@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0
+
+  * Upload `config.js` alongside the other deployment files. Helpful to keep a record.
+  * The first coordinator instances following deployment upload `confirm.txt` on success.
+  * Deployment waits for `confirm.txt` to exist.
+
 ## 0.2.0
 
   * Add a maximum concurrency limit for `eventFromMessage` components.
