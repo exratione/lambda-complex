@@ -845,6 +845,17 @@ describe('lib/shared/utilities', function () {
     });
   });
 
+  describe('getConfigS3Key', function () {
+    it('functions correctly', function () {
+      expect(utilities.getConfigS3Key(applicationConfig)).to.equal(
+        path.join(
+          utilities.getFullS3KeyPrefix(applicationConfig),
+          'config.js'
+        )
+      );
+    });
+  });
+
   describe('getApplicationConfirmationS3Key', function () {
     it('functions correctly', function () {
       expect(utilities.getApplicationConfirmationS3Key(applicationConfig)).to.equal(

@@ -86,6 +86,7 @@ describe('index', function () {
 
       sandbox.stub(index, 'build').yields();
       sandbox.stub(s3Utilities, 'uploadLambdaFunctions').yields();
+      sandbox.stub(s3Utilities, 'uploadConfig').yields();
       sandbox.stub(cloudFormationUtilities, 'deployStack').yields(null, results);
     });
 
@@ -106,6 +107,11 @@ describe('index', function () {
         );
         sinon.assert.calledWith(
           s3Utilities.uploadLambdaFunctions,
+          applicationConfig,
+          sinon.match.func
+        );
+        sinon.assert.calledWith(
+          s3Utilities.uploadConfig,
           applicationConfig,
           sinon.match.func
         );

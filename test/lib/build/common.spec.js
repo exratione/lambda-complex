@@ -189,4 +189,22 @@ describe('lib/build/common', function () {
     });
   });
 
+  describe('generateConfigContents', function () {
+    it('produces suitable duplicate config Javascript', function () {
+      var jsPath = path.join(scratchDir, 'configContent.js');
+
+      fs.writeFileSync(
+        jsPath,
+        buildCommon.generateConfigContents(applicationConfig)
+      );
+
+      var config = require(jsPath);
+      // Hijack the Sinon matcher to make the comparison, since that is what it
+      // is for.
+      var matcher = resources.getConfigMatcher(applicationConfig);
+
+      expect(matcher.test(config)).to.equal(true);
+    });
+  });
+
 });

@@ -453,12 +453,6 @@ Currently CloudWatch log groups are not deleted when an application stack is
 deleted. This may or may not be desired, and so a deletion option or deletion
 tool would be useful.
 
-### Detection of Coordinator Failure on Deployment
-
-The ability to detect whether or not the coordinator runs successfully when a
-new version is deployed is much needed. This should count as a failed
-deployment, and thus not trigger switchover and deletion of the existing stack.
-
 ### More Component Types
 
 Add further component types based on other ways to trigger Lambda functions

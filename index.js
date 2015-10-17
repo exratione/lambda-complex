@@ -66,6 +66,12 @@ exports.deploy = function (config, callback) {
     uploadLambdaFunctions: function (asyncCallback) {
       s3Utilities.uploadLambdaFunctions(config, asyncCallback);
     },
+    // The application doesn't use this config file instance, rather loading
+    // config files from the packages, but keeping a record of it in S3
+    // alongside the other files for each deployment seems like a smart idea.
+    uploadConfig: function (asyncCallback) {
+      s3Utilities.uploadConfig(config, asyncCallback);
+    },
     deployCloudFormationStack: function (asyncCallback) {
       cloudFormationUtilities.deployStack(config, function (error, _results) {
         results = _results;

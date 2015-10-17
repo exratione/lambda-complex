@@ -24,53 +24,6 @@ describe('lib/deploy/s3Utilities', function () {
     sandbox.restore();
   });
 
-  describe('uploadLambdaFunction', function () {
-    var component;
-
-    beforeEach(function () {
-      component = applicationConfig.components[0];
-    });
-
-    it('correctly invokes the client function', function (done) {
-      s3Utilities.uploadLambdaFunction(component, applicationConfig, function (error) {
-        sinon.assert.calledOnce(s3Utilities.s3Client.putObject);
-        sinon.assert.calledWith(
-          s3Utilities.s3Client.putObject,
-          {
-            // Should be a read stream.
-            Body: sinon.match.object,
-            Bucket: applicationConfig.deployment.s3Bucket,
-            Key: common.getComponentS3Key(component, applicationConfig)
-          },
-          sinon.match.func
-        );
-
-        done(error);
-      });
-    });
-
-    it('retries on failure', function (done) {
-      s3Utilities.s3Client.putObject.onCall(0).yields(new Error());
-
-      s3Utilities.uploadLambdaFunction(component, applicationConfig, function (error) {
-        sinon.assert.calledTwice(s3Utilities.s3Client.putObject);
-        sinon.assert.calledWith(
-          s3Utilities.s3Client.putObject,
-          {
-            // Should be a read stream.
-            Body: sinon.match.object,
-            Bucket: applicationConfig.deployment.s3Bucket,
-            Key: common.getComponentS3Key(component, applicationConfig)
-          },
-          sinon.match.func
-        );
-
-        done(error);
-      });
-    });
-
-  });
-
   describe('uploadArnMap', function () {
     var arnMap;
 
@@ -115,7 +68,93 @@ describe('lib/deploy/s3Utilities', function () {
         done(error);
       });
     });
+  });
 
+  describe('uploadConfig', function () {
+
+    it('correctly invokes the client function', function (done) {
+      s3Utilities.uploadConfig(applicationConfig, function (error) {
+        sinon.assert.calledOnce(s3Utilities.s3Client.putObject);
+        sinon.assert.calledWith(
+          s3Utilities.s3Client.putObject,
+          {
+            Body: common.generateConfigContents(applicationConfig),
+            Bucket: applicationConfig.deployment.s3Bucket,
+            ContentType: 'application/javascript',
+            Key: utilities.getConfigS3Key(applicationConfig)
+          },
+          sinon.match.func
+        );
+
+        done(error);
+      });
+    });
+
+    it('retries on failure', function (done) {
+      s3Utilities.s3Client.putObject.onCall(0).yields(new Error());
+
+      s3Utilities.uploadConfig(applicationConfig, function (error) {
+        sinon.assert.calledTwice(s3Utilities.s3Client.putObject);
+        sinon.assert.calledWith(
+          s3Utilities.s3Client.putObject,
+          {
+            Body: common.generateConfigContents(applicationConfig),
+            Bucket: applicationConfig.deployment.s3Bucket,
+            ContentType: 'application/javascript',
+            Key: utilities.getConfigS3Key(applicationConfig)
+          },
+          sinon.match.func
+        );
+
+        done(error);
+      });
+    });
+  });
+
+  describe('uploadLambdaFunction', function () {
+    var component;
+
+    beforeEach(function () {
+      component = applicationConfig.components[0];
+    });
+
+    it('correctly invokes the client function', function (done) {
+      s3Utilities.uploadLambdaFunction(component, applicationConfig, function (error) {
+        sinon.assert.calledOnce(s3Utilities.s3Client.putObject);
+        sinon.assert.calledWith(
+          s3Utilities.s3Client.putObject,
+          {
+            // Should be a read stream.
+            Body: sinon.match.object,
+            Bucket: applicationConfig.deployment.s3Bucket,
+            Key: common.getComponentS3Key(component, applicationConfig)
+          },
+          sinon.match.func
+        );
+
+        done(error);
+      });
+    });
+
+    it('retries on failure', function (done) {
+      s3Utilities.s3Client.putObject.onCall(0).yields(new Error());
+
+      s3Utilities.uploadLambdaFunction(component, applicationConfig, function (error) {
+        sinon.assert.calledTwice(s3Utilities.s3Client.putObject);
+        sinon.assert.calledWith(
+          s3Utilities.s3Client.putObject,
+          {
+            // Should be a read stream.
+            Body: sinon.match.object,
+            Bucket: applicationConfig.deployment.s3Bucket,
+            Key: common.getComponentS3Key(component, applicationConfig)
+          },
+          sinon.match.func
+        );
+
+        done(error);
+      });
+    });
   });
 
   describe('uploadLambdaFunctions', function () {

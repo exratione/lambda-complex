@@ -44,6 +44,12 @@ module.exports = {
     // ----------------------------------------------------------------------
 
     // AWS region.
+    //
+    // This must match whatever region is configured in the deployment
+    // environment.
+    //
+    // TODO: having this and the environment configuration is clumsy. Look at
+    // cutting that down to one declaration one way or another.
     region: 'us-east-1',
 
     // The S3 bucket into which packaged Lambda functions will be uploaded.
