@@ -752,7 +752,7 @@ describe('lib/shared/utilities', function () {
         sinon.assert.alwaysCalledWith(
           utilities.receiveMessage,
           utilities.getConcurrencyQueueUrl(component.name, arnMap),
-          0,
+          component.lambda.timeout,
           component.queueWaitTime,
           sinon.match.func
         );
@@ -778,7 +778,7 @@ describe('lib/shared/utilities', function () {
         sinon.assert.alwaysCalledWith(
           utilities.receiveMessage,
           utilities.getConcurrencyQueueUrl(component.name, arnMap),
-          0,
+          component.lambda.timeout,
           component.queueWaitTime,
           sinon.match.func
         );
@@ -804,7 +804,7 @@ describe('lib/shared/utilities', function () {
         sinon.assert.alwaysCalledWith(
           utilities.receiveMessage,
           utilities.getConcurrencyQueueUrl(component.name, arnMap),
-          0,
+          component.lambda.timeout,
           component.queueWaitTime,
           sinon.match.func
         );
