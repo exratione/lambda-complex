@@ -392,6 +392,8 @@ lc.handleAsEventFromMessageType = function (event, wrappedContext) {
 
       // No message in the queue to process.
       if (!result) {
+        // This really has to be fail(), as that ensures that nothing will get
+        // passed on to other Lambda functions.
         return wrappedContext.fail(new Error(
           'No messages available in the queue.'
         ));

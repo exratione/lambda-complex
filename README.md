@@ -13,6 +13,7 @@ NPM module that exports one or more Lambda function handlers, or write your own.
 function invocations in potentially complicated, result-dependent ways.
 * Each Lambda function in the application can be linked to an SQS queue, and is
 then invoked in response to messages sent to that queue.
+* Currently this is the only way to send data to a Lambda Complex application.
 * A Lambda complex application is deployed as a CloudFormation stack.
 
 A Lambda Complex application can be deployed from a developer machine, or from
@@ -62,13 +63,15 @@ At the present time Lambda Complex is more suited to:
 
 * Slower, non-time-critical applications, such as static content generation.
 * Applications that make use of existing third party Node.js Lambda functions.
-* People who like monitoring application state via SQS queues attributes.
+* Applications accepting data via SQS queues.
+* People who like monitoring application state via SQS queue attributes.
 * People who don't mind a lack of structure in their frameworks.
 
 JAWS is more suited to:
 
 * Faster applications, such as APIs.
 * Applications that must use non-Node.js Lambda functions.
+* Applications accepting data through the standard Lambda function channels.
 * People who like a little more structure in their frameworks.
 
 ## Basic Concepts

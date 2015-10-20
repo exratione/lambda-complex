@@ -819,6 +819,15 @@ describe('lib/shared/utilities', function () {
         done(error);
       });
     });
+
+    it('calls back with error if no message found', function (done) {
+      utilities.receiveMessage.yields();
+
+      utilities.decrementConcurrencyCount(component, arnMap, function (error) {
+        expect(error).to.be.instanceOf(Error);
+        done();
+      });
+    });
   });
 
   describe('getFullS3KeyPrefix', function () {

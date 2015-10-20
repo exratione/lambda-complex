@@ -159,7 +159,7 @@ describe('lib/lambdaFunctions/coordinator/invoker', function () {
       }, 20);
     });
 
-    it('proceeds after increment error', function (done) {
+    it('errors on increment error', function (done) {
       sandbox.stub(console, 'error');
       utilities.incrementConcurrencyCount.yields(new Error());
 
@@ -167,26 +167,8 @@ describe('lib/lambdaFunctions/coordinator/invoker', function () {
 
       setTimeout(function () {
         sinon.assert.calledWith(
-          utilities.loadArnMap,
-          resources.getConfigMatcher(applicationConfig),
-          sinon.match.func
-        );
-        sinon.assert.calledWith(
-          utilities.incrementConcurrencyCount,
-          constants.invoker.COMPONENT,
-          arnMap,
-          sinon.match.func
-        );
-        sinon.assert.calledWith(
-          common.invokeApplicationLambdaFunctions,
-          event.components,
-          arnMap,
-          sinon.match.func
-        );
-        sinon.assert.notCalled(utilities.decrementConcurrencyCount);
-        sinon.assert.calledWith(
           context.done,
-          null,
+          sinon.match.instanceOf(Error),
           event.components
         );
 
