@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.1
+
+  * Alter increment/decrement error behavior in invoker to match coordinator.
+  * Fix concurrency decrement for the case in which no message is found.
+
 ## 0.3.0
 
   * Upload `config.js` alongside the other deployment files. Helpful to keep a record.
