@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.0
+
+  * Add option to delete old CloudWatch log groups on deployment.
+  * Make deployment options for stack deletion more granular.
+
 ## 0.3.2
 
   * `VisibilityTimeout` cannot be 0 in the `decrementConcurrencyCount` function, as this can cause message deletion to fail silently.
