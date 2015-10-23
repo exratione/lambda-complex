@@ -86,11 +86,25 @@ module.exports = {
       callback();
     },
 
-    // If set true, then this stack is not destroyed on failure, and prior
-    // instances of stacks for this application are not destroyed on success.
+    // If set true then CloudFormation stacks created in prior deployments of
+    // this application are NOT destroyed on a successful deployment.
     //
-    // This is helpful during development, but otherwise should be left false.
-    developmentMode: false
+    // This can be helpful during development.
+    skipPriorCloudFormationStackDeletion: false,
+
+    // If set true, then CloudWatch log groups created by the Lambda function
+    // instances from prior deployments of this application are NOT destroyed
+    // on a successful deployment.
+    //
+    // CloudWatch log groups are clutter for some people, others want to keep
+    // them.
+    skipPriorCloudWatchLogGroupsDeletion: false,
+
+    // If set true, then the CloudFormation stack for this deployment is NOT
+    // destroyed on deployment failure.
+    //
+    // This can be helpful during development.
+    skipCloudFormationStackDeletionOnFailure: false
   },
 
   // The coordinator is a lambda function package that is expected to consume

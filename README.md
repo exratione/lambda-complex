@@ -215,8 +215,7 @@ Specify the necessary deployment details:
     tags: {},
     switchoverFunction: function (stackDescription, config, callback) {
       callback();
-    },
-    developmentMode: false
+    }
   },
 ```
 
@@ -348,7 +347,8 @@ testing to ensure that your application can function in that environment.
 
 For deployment to work, suitable AWS credentials for the account specified in
 the configuration file must be present. The credentials must at a minimum
-allow interaction with CloudFormation stacks, Lambda functions, SQS queues, and
+allow full interaction with CloudFormation stacks, the S3 bucket and key prefix
+specified in configuration, CloudWatch logs, Lambda functions, SQS queues, and
 roles.
 
 To make credentials available for Lambda Complex, either create a credentials

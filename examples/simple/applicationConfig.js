@@ -25,7 +25,9 @@ module.exports = {
     switchoverFunction: function (stackDescription, config, callback) {
       callback();
     },
-    developmentMode: false
+    skipPriorCloudFormationStackDeletion: false,
+    skipPriorCloudWatchLogGroupsDeletion: false,
+    skipCloudFormationStackDeletionOnFailure: false
   },
 
   coordinator: {

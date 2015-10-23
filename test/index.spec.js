@@ -4,6 +4,7 @@
 
 // NPM.
 var fs = require('fs-extra');
+var Janitor = require('cloudwatch-logs-janitor');
 
 // Local.
 var applicationConfigValidator = require('../lib/build/configValidator');
@@ -14,19 +15,23 @@ var installUtilities = require('../lib/build/installUtilities');
 var packageUtilities = require('../lib/build/packageUtilities');
 var s3Utilities = require('../lib/deploy/s3Utilities');
 
-var applicationConfig = require('./resources/mockApplication/applicationConfig');
 var index = require('../index');
 
 describe('index', function () {
+  var applicationConfig;
   var sandbox;
 
   beforeEach(function () {
+    applicationConfig = require('./resources/mockApplication/applicationConfig');
+
     sandbox = sinon.sandbox.create();
     sandbox.stub(applicationConfigValidator, 'validate').returns([]);
+    sandbox.stub(Janitor.prototype, 'deleteMatchingLogGroups').yields();
   });
 
   afterEach(function () {
     sandbox.restore();
+    delete require.cache[require.resolve('./resources/mockApplication/applicationConfig')];
   });
 
   describe('build', function () {
@@ -120,10 +125,29 @@ describe('index', function () {
           applicationConfig,
           sinon.match.func
         );
+        sinon.assert.calledWith(
+          Janitor.prototype.deleteMatchingLogGroups,
+          sinon.match(function (options) {
+            return (
+              (options.createdBefore instanceof Date) &&
+              (options.prefix === '/aws/lambda/' + applicationConfig.name + '-')
+            );
+          }, 'Options object does not match.'),
+          sinon.match.func
+        );
 
         done(error);
       });
     });
-  });
 
+    it('skips CloudWatch log deletion if so configured', function (done) {
+      applicationConfig.deployment.skipPriorCloudWatchLogGroupsDeletion = true;
+
+      index.deploy(applicationConfig, function (error, obtainedResults) {
+        expect(obtainedResults).to.equal(results);
+        sinon.assert.notCalled(Janitor.prototype.deleteMatchingLogGroups);
+        done(error);
+      });
+    });
+  });
 });

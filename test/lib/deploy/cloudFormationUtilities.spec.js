@@ -13,15 +13,17 @@ var s3Utilities = require('../../../lib/deploy/s3Utilities');
 var utilities = require('../../../lib/shared/utilities');
 
 var resources = require('../../resources');
-var applicationConfig = require('../../resources/mockApplication/applicationConfig');
 
 describe('lib/deploy/cloudFormationUtilities', function () {
 
+  var applicationConfig;
   var clock;
   var cloudFormationUtilities;
   var sandbox;
 
   beforeEach(function () {
+    applicationConfig = require('../../resources/mockApplication/applicationConfig');
+
     sandbox = sinon.sandbox.create();
     clock = sandbox.useFakeTimers();
     // Load after creating the clock so that we get the fake timers.
@@ -33,6 +35,7 @@ describe('lib/deploy/cloudFormationUtilities', function () {
   afterEach(function () {
     sandbox.restore();
     delete require.cache[require.resolve('../../../lib/deploy/cloudFormationUtilities')];
+    delete require.cache[require.resolve('../../resources/mockApplication/applicationConfig')];
   });
 
   describe('arnMapFromOutputs', function () {
@@ -373,9 +376,8 @@ describe('lib/deploy/cloudFormationUtilities', function () {
       });
     });
 
-    it('creates correct configuration object for dev mode', function () {
-      var devMode = applicationConfig.deployment.developmentMode;
-      applicationConfig.deployment.developmentMode = true;
+    it('creates correct configuration object for skipPriorCloudFormationStackDeletion', function () {
+      applicationConfig.deployment.skipPriorCloudFormationStackDeletion = true;
       var obj = cloudFormationUtilities.generateCloudFormationDeployConfig(
         applicationConfig
       );
@@ -393,11 +395,31 @@ describe('lib/deploy/cloudFormationUtilities', function () {
         tags: applicationConfig.deployment.tags,
         progressCheckIntervalInSeconds: 10,
         priorInstance: cloudFormationDeploy.priorInstance.DO_NOTHING,
+        onFailure: cloudFormationDeploy.onFailure.DELETE
+      });
+    });
+
+    it('creates correct configuration object for skipCloudFormationStackDeletionOnFailure', function () {
+      applicationConfig.deployment.skipCloudFormationStackDeletionOnFailure = true;
+      var obj = cloudFormationUtilities.generateCloudFormationDeployConfig(
+        applicationConfig
+      );
+
+      // Check the function.
+      expect(obj.postCreationFn).to.be.a('function');
+      delete obj.postCreationFn;
+
+      // Compare the rest.
+      expect(obj).to.eql({
+        baseName: applicationConfig.name,
+        version: applicationConfig.version,
+        deployId: applicationConfig.deployId,
+        createStackTimeoutInMinutes: 10,
+        tags: applicationConfig.deployment.tags,
+        progressCheckIntervalInSeconds: 10,
+        priorInstance: cloudFormationDeploy.priorInstance.DELETE,
         onFailure: cloudFormationDeploy.onFailure.DO_NOTHING
       });
-
-      // Restore the original.
-      applicationConfig.deployment.developmentMode = devMode;
     });
   });
 

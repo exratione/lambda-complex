@@ -2,7 +2,7 @@
 
 ## 0.3.2
 
-  * `VisibilityTimeout` cannot be 0 in the `decrementConcurrencyCount` function, as this can causes message deletion to fail silently.
+  * `VisibilityTimeout` cannot be 0 in the `decrementConcurrencyCount` function, as this can cause message deletion to fail silently.
 
 ## 0.3.1
 
