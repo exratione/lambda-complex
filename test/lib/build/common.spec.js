@@ -143,7 +143,7 @@ describe('lib/build/common', function () {
             __dirname,
             '../../../lib/lambdaFunctions/coordinator'
           ),
-          handler: constants.coordinator.HANDLE,
+          handler: constants.coordinator.HANDLER,
           memorySize: constants.coordinator.MEMORY_SIZE,
           timeout: constants.coordinator.TIMEOUT,
           role: constants.coordinator.ROLE
@@ -163,7 +163,7 @@ describe('lib/build/common', function () {
             __dirname,
             '../../../lib/lambdaFunctions/coordinator'
           ),
-          handler: constants.invoker.HANDLE,
+          handler: constants.invoker.HANDLER,
           memorySize: constants.invoker.MEMORY_SIZE,
           timeout: constants.invoker.TIMEOUT,
           role: constants.invoker.ROLE
