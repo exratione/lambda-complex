@@ -450,12 +450,6 @@ A robust monitoring and log streaming module is needed, built on the CloudWatch
 APIs. A programmatic interface to how the applications is working (or not
 working) is a necessary part of a number of further refinements.
 
-### Deletion of Old CloudWatch Log Groups
-
-Currently CloudWatch log groups are not deleted when an application stack is
-deleted. This may or may not be desired, and so a deletion option or deletion
-tool would be useful.
-
 ### More Component Types
 
 Add further component types based on other ways to trigger Lambda functions

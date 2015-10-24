@@ -124,7 +124,7 @@
         ]
       }
     },
-    "S3ReadRole": {
+    "S3ReadARole": {
       "Type": "AWS::IAM::Role",
       "Properties": {
         "AssumeRolePolicyDocument": {
@@ -143,7 +143,7 @@
         "Path": "/",
         "Policies": [
           {
-            "PolicyName": "S3ReadRole",
+            "PolicyName": "S3ReadARole",
             "PolicyDocument": {
               "Version": "2012-10-17",
               "Statement": [
@@ -151,7 +151,134 @@
                   "Effect": "Allow",
                   "Action": "s3:get*",
                   "Resource": [
-                    "arn:aws:s3:::exampleBucket1/*",
+                    "arn:aws:s3:::exampleBucket1/*"
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "sqs:DeleteMessage",
+                    "sqs:GetQueueAttributes",
+                    "sqs:ReceiveMessage",
+                    "sqs:SendMessage"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::GetAtt": [
+                        "MessageQueue",
+                        "Arn"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "sqs:DeleteMessage",
+                    "sqs:GetQueueAttributes",
+                    "sqs:ReceiveMessage",
+                    "sqs:SendMessage"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::GetAtt": [
+                        "LambdaComplexCoordinatorConcurrencyQueue",
+                        "Arn"
+                      ]
+                    },
+                    {
+                      "Fn::GetAtt": [
+                        "LambdaComplexInvokerConcurrencyQueue",
+                        "Arn"
+                      ]
+                    },
+                    {
+                      "Fn::GetAtt": [
+                        "MessageConcurrencyQueue",
+                        "Arn"
+                      ]
+                    },
+                    {
+                      "Fn::GetAtt": [
+                        "InvocationConcurrencyQueue",
+                        "Arn"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "lambda:InvokeFunction"
+                  ],
+                  "Resource": [
+                    "arn:aws:lambda:us-east-1:*:function:mock-*"
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:GetObject"
+                  ],
+                  "Resource": [
+                    "arn:aws:s3:::lambda-complex/applications/mock/15/arnMap.json"
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:GetObject",
+                    "s3:PutObject",
+                    "s3:PutObjectAcl"
+                  ],
+                  "Resource": [
+                    "arn:aws:s3:::lambda-complex/applications/mock/15/confirm.txt"
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                  ],
+                  "Resource": [
+                    "arn:aws:logs:us-east-1:*:*"
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "S3ReadBRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "Path": "/",
+        "Policies": [
+          {
+            "PolicyName": "S3ReadBRole",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "s3:get*",
+                  "Resource": [
                     "arn:aws:s3:::exampleBucket2/*"
                   ]
                 },
@@ -305,7 +432,7 @@
         "MemorySize": 128,
         "Role": {
           "Fn::GetAtt": [
-            "S3ReadRole",
+            "S3ReadARole",
             "Arn"
           ]
         },
@@ -325,7 +452,7 @@
         "MemorySize": 128,
         "Role": {
           "Fn::GetAtt": [
-            "S3ReadRole",
+            "S3ReadBRole",
             "Arn"
           ]
         },

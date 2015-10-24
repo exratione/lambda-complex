@@ -37,13 +37,24 @@ module.exports = {
   roles: [
     // Not really used, just here to exercise code more completely.
     {
-      name: 's3Read',
+      name: 's3ReadA',
       statements: [
         {
           effect: 'Allow',
           action: 's3:get*',
           resource: [
-            'arn:aws:s3:::exampleBucket1/*',
+            'arn:aws:s3:::exampleBucket1/*'
+          ]
+        }
+      ]
+    },
+    {
+      name: 's3ReadB',
+      statements: [
+        {
+          effect: 'Allow',
+          action: 's3:get*',
+          resource: [
             'arn:aws:s3:::exampleBucket2/*'
           ]
         }
@@ -64,7 +75,7 @@ module.exports = {
         handler: 'index.handler',
         memorySize: 128,
         timeout: 60,
-        role: 's3Read'
+        role: 's3ReadA'
       }
     },
 
@@ -78,7 +89,7 @@ module.exports = {
         handler: 'index.handler',
         memorySize: 128,
         timeout: 60,
-        role: 's3Read'
+        role: 's3ReadB'
       }
     }
   ]
