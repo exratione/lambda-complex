@@ -14,7 +14,6 @@ var utilities = require('../../../lib/shared/utilities');
 var applicationConfig = require('../../resources/mockApplication/applicationConfig');
 
 describe('lib/shared/utilities', function () {
-
   var sandbox;
   var component;
   var arnMap;

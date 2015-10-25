@@ -43,8 +43,6 @@ describe('lib/grunt/common', function () {
 
       var config = gruntCommon.getConfigurationFromOptionOrFail(grunt);
 
-      console.log(config);
-
       sinon.assert.calledWith(grunt.option, 'config-path');
 
       // Hijack the Sinon matcher to make the comparison, since that is what it
