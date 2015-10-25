@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.0
+
+  * Improve config validation.
+  * Expand unit test converage.
+
 ## 0.4.0
 
   * Add option to delete old CloudWatch log groups on deployment.
