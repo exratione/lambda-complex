@@ -1,8 +1,12 @@
 # Changelog
 
+## 0.5.1
+
+  * Minor configuration validation improvement.
+
 ## 0.5.0
 
-  * Improve config validation.
+  * Improve configuration validation.
   * Expand unit test converage.
 
 ## 0.4.0
