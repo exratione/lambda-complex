@@ -381,6 +381,43 @@ describe('lib/build/configValidator', function () {
     });
   });
 
+  describe('validation fails for additional undefined properties', function () {
+    it('top level', function () {
+      mockApplicationConfig.x = true;
+      expect(validator.validate(mockApplicationConfig).length).to.be.above(0);
+    });
+
+    it('deployment', function () {
+      mockApplicationConfig.deployment.x = true;
+      expect(validator.validate(mockApplicationConfig).length).to.be.above(0);
+    });
+
+    it('coordinator', function () {
+      mockApplicationConfig.coordinator.x = true;
+      expect(validator.validate(mockApplicationConfig).length).to.be.above(0);
+    });
+
+    it('role', function () {
+      mockApplicationConfig.roles[0].x = true;
+      expect(validator.validate(mockApplicationConfig).length).to.be.above(0);
+    });
+
+    it('role statements', function () {
+      mockApplicationConfig.roles[1].statements[0].x = true;
+      expect(validator.validate(mockApplicationConfig).length).to.be.above(0);
+    });
+
+    it('component', function () {
+      mockApplicationConfig.components[0].x = true;
+      expect(validator.validate(mockApplicationConfig).length).to.be.above(0);
+    });
+
+    it('component.lambda', function () {
+      mockApplicationConfig.components[0].lambda.x = true;
+      expect(validator.validate(mockApplicationConfig).length).to.be.above(0);
+    });
+  });
+
   // Run the checks on whether validation works for valid files after all the
   // tests that alter configuration. This ensures that nothing was messed up in
   // the course of testing.
