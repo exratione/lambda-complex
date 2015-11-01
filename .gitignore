@@ -1,6 +1,9 @@
 # Sublime Text
 *sublime-*
 
+# Lock files for LibreOffice.
+**/.~lock*
+
 # Node, NPM
 **/node_modules
 npm*

@@ -2,8 +2,21 @@
 
 Lambda Complex is a Node.js framework for applications that run entirely within
 Lambda, SQS, and other high abstraction layer AWS services. It is well suited to
-non-realtime content generation needs, such as high concurrency file generation
-or other workflows carried out in response to messages placed into an SQS queue.
+non-realtime content generation and other types of application driven by message
+queues and which require enforced concurrency limits. Examples include high
+volume generation of static content from data or other types of workflow
+initiated in response to messages placed into SQS queues.
+
+  * [In a Nutshell](#in-a-nutshell)
+  * [Why Lambda Complex?](#why-lambda-complex)
+  * [Examples](#examples)
+  * [How Does Lambda Complex Compare With JAWS?](#how-does-lambda-complex-compare-with-jaws)
+  * [Basic Concepts](#basic-concepts)
+  * [Creating a Lambda Complex Application](#creating-a-lambda-complex-application)
+  * [Working With a Lambda Complex Application](#working-with-a-lambda-complex-application)
+  * [A Speculative Roadmap](#a-speculative-roadmap)
+
+## In a Nutshell
 
 The high points of Lambda Complex:
 
@@ -75,6 +88,8 @@ JAWS is more suited to:
 * People who like a little more structure in their frameworks.
 
 ## Basic Concepts
+
+![Lambda Complex overview][9]
 
 ### Application Configuration File
 
@@ -483,6 +498,19 @@ on these logs and metrics.
 Lambda Complex remains in an early stage of development. Moving forward the
 following are intended.
 
+### Switch Coordinators to Use Scheduled Events
+
+When scheduled events for Lambda functions can be set up via CloudFormation,
+switch the coordinator instances to run using this functionality rather than via
+self-invocation.
+
+### Better Support for Switchover of SQS Queues
+
+The process of switching delivery of data to new queues on each new deployment
+of an existing application is painful, and what happens to the messages in the
+old queues? They will get dropped as it stands. Helpers to make it easier
+to build a suitable switchover function would be useful.
+
 ### Monitoring and Log Streaming
 
 A robust monitoring and log streaming module is needed, built on the CloudWatch
@@ -502,13 +530,6 @@ Providing the ability to run an application locally.
 
 Tools to stress test a local or deployed application.
 
-### Better Support for Switchover of SQS Queues
-
-The process of switching delivery of data to new queues on each new deployment
-of an existing application is painful, and what happens to the messages in the
-old queues? They will get dropped as it stands. Helpers to make it easier
-to build a suitable switchover function would be useful.
-
 [1]: ./examples/exampleApplicationConfig.js
 [2]: ./examples/simple
 [3]: http://docs.aws.amazon.com/AWSJavaScriptSDK/guide/node-configuring.html
@@ -517,3 +538,4 @@ to build a suitable switchover function would be useful.
 [6]: https://github.com/jaws-framework/JAWS
 [7]: http://docs.aws.amazon.com/lambda/latest/dg/current-supported-versions.html
 [8]: http://gruntjs.com/
+[9]: ./docs/images/lambda-complex-overview.png
