@@ -1,16 +1,16 @@
 /**
- * @fileOverview Grunt task deploy.
+ * @fileOverview Grunt task lambda-complex-deploy.
  *
  * Build and deploy a Lambda Complex application as a CloudFormation stack.
  */
 
 // Local.
-var common = require('../common');
-var index = require('../../../index');
+var common = require('../lib/grunt/common');
+var index = require('../index');
 
 module.exports = function (grunt) {
   grunt.registerTask(
-    'deploy',
+    'lambda-complex-deploy',
     'Build and deploy a Lambda Complex application as a CloudFormation stack.',
     function () {
       var done = this.async();

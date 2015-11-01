@@ -3,9 +3,9 @@
  */
 
 // Local.
-var deploy = require('../../../../lib/grunt/tasks/deploy')
-var gruntCommon = require('../../../../lib/grunt/common');
-var index = require('../../../../index');
+var deploy = require('../../tasks/deploy')
+var gruntCommon = require('../../lib/grunt/common');
+var index = require('../../index');
 
 describe('lib/grunt/tasks/build', function () {
   var callback;
@@ -41,7 +41,7 @@ describe('lib/grunt/tasks/build', function () {
 
     sinon.assert.calledWith(
       grunt.registerTask,
-      'deploy',
+      'lambda-complex-deploy',
       'Build and deploy a Lambda Complex application as a CloudFormation stack.',
       taskFn
     );

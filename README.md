@@ -362,6 +362,18 @@ the ways noted above.
 
 ## Working With a Lambda Complex Application
 
+### Grunt Tasks
+
+The `lambda-complex` module exports the following [Grunt][8] tasks, which can
+be loaded via `grunt.loadNpmTasks('lambda-complex')` in modules that load
+`lambda-complex` as a dependency:
+
+  * `lambda-complex-build` - build a specified application.
+  * `lambda-complex-deploy` - build and deploy a specified application.
+
+The usage of the tasks is illustrated below; both require the `--config-path`
+option to be specified.
+
 ### Deploy the Application
 
 Once the Javascript configuration file is ready, deploy the application via a
@@ -369,7 +381,7 @@ Grunt task. Note that the `config-path` option can be set to a relative or
 absolute path:
 
 ```
-grunt deploy --config-path=/path/to/applicationConfig.js
+grunt lambda-complex-deploy --config-path=/path/to/applicationConfig.js
 ```
 
 Deployment uses the [cloudformation-deploy NPM module][4], so you may want to
@@ -403,6 +415,33 @@ Some NPM modules build local binaries on installation. If any of the component
 Lambda function implementations require binary modules, then the Lambda Complex
 application [must be deployed from an Amazon Linux EC2 instance][5] to ensure
 that the environments match.
+
+### Building the Application Without Deployment
+
+It is possible to build the application locally without deploying it, which can
+be useful during development. This will result in the creation of the zipped
+Lambda function packages and CloudFormation template only.
+
+```
+grunt lambda-complex-build --config-path=/path/to/applicationConfig.js
+```
+
+#### Programmatic Interface for Building
+
+Building without deployment can be managed programmatically:
+
+```
+var lambdaComplex = require('lambda-complex');
+var config = require('/path/to/applicationConfig');
+
+lambdaComplex.build(config, function (error, results) {
+  if (error) {
+    console.error(error);
+  }
+
+  console.info(results);
+});
+```
 
 ### Shut Down an Application
 
@@ -477,3 +516,4 @@ to build a suitable switchover function would be useful.
 [5]: https://aws.amazon.com/blogs/compute/nodejs-packages-in-lambda/
 [6]: https://github.com/jaws-framework/JAWS
 [7]: http://docs.aws.amazon.com/lambda/latest/dg/current-supported-versions.html
+[8]: http://gruntjs.com/

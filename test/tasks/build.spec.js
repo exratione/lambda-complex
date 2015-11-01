@@ -3,9 +3,9 @@
  */
 
 // Local.
-var build = require('../../../../lib/grunt/tasks/build')
-var gruntCommon = require('../../../../lib/grunt/common');
-var index = require('../../../../index');
+var build = require('../../tasks/build')
+var gruntCommon = require('../../lib/grunt/common');
+var index = require('../../index');
 
 describe('lib/grunt/tasks/build', function () {
   var callback;
@@ -41,7 +41,7 @@ describe('lib/grunt/tasks/build', function () {
 
     sinon.assert.calledWith(
       grunt.registerTask,
-      'build',
+      'lambda-complex-build',
       'Build a Lambda Complex application.',
       taskFn
     );

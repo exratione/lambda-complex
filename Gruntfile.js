@@ -43,7 +43,7 @@ module.exports = function (grunt) {
   });
 
   // Loads local tasks for this module.
-  grunt.loadTasks('lib/grunt/tasks');
+  grunt.loadTasks('tasks');
 
   // Loading NPM module grunt tasks.
   grunt.loadNpmTasks('grunt-contrib-clean');

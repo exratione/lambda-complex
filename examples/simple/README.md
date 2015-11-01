@@ -72,7 +72,7 @@ match the AWS account to deploy into:
 After configuring `examples/simple/applicationConfig.js`, run the following:
 
 ```
-grunt deploy --config-path=examples/simple/applicationConfig.js
+grunt lambda-complex-deploy --config-path=examples/simple/applicationConfig.js
 ```
 
 ## Setting the Application in Motion
