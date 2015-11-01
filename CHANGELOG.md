@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.0
+
+  * Rename and export Grunt tasks.
+  * Update documentation, add an overview diagram.
+
 ## 0.5.1
 
   * Minor configuration validation improvement.
