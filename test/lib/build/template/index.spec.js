@@ -38,11 +38,25 @@ describe('lib/build/template/index.js.hbs', function () {
       applicationConfig.name,
       'message'
     ));
+    // Turn off the handling of uncaught exceptions. This messes up testing
+    // horribly, since the handlers linger on the process.
+    process.removeListener(
+      'uncaughtException',
+      wrapperMessage.lc.handleUncaughtException
+    );
+
     wrapperInvocation = require(path.join(
       scratchDir,
       applicationConfig.name,
       'invocation'
     ));
+    // Turn off the handling of uncaught exceptions. This messes up testing
+    // horribly, since the handlers linger on the process.
+    process.removeListener(
+      'uncaughtException',
+      wrapperInvocation.lc.handleUncaughtException
+    );
+
     originalMessage = require(path.join(
       scratchDir,
       applicationConfig.name,
@@ -94,12 +108,6 @@ describe('lib/build/template/index.js.hbs', function () {
     // And incremented flags.
     wrapperMessage.lc.incremented = true;
     wrapperInvocation.lc.incremented = true;
-
-    // Turn off the handling of uncaught exceptions. This messes up testing
-    // horribly: we want exceptions to be uncaught since the objective is to
-    // have exception-free code.
-    wrapperMessage.lc.handleUncaughtException = false;
-    wrapperInvocation.lc.handleUncaughtException = false;
 
     // Make sure we stub the AWS client functions used here.
     sandbox.stub(wrapperMessage.lc.utilities, 'invoke').yields();

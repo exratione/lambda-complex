@@ -12,6 +12,7 @@
       "beforeColon": false,
       "afterColon": true
     }],
+    "keyword-spacing": [2, { "before": true, "after": true }],
     "no-multiple-empty-lines": 2,
     "no-throw-literal": 2,
     "no-underscore-dangle": 0,
@@ -24,7 +25,6 @@
     "quote-props": [2, "as-needed"],
     "quotes": [2, "single"],
     "radix": 2,
-    "space-after-keywords": [2, "always"],
     "space-before-blocks": [2, "always"],
     "space-before-function-paren": [2, "always"],
     "space-in-parens": [2, "never"],

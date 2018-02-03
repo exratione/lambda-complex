@@ -37,10 +37,6 @@ var lc = {};
 lc.config = config;
 lc.utilities = utilities;
 
-// Processing uncaught exceptions can mess up unit tests very efficiently, so
-// expose a flag to turn it off.
-lc.handleUncaughtException = true;
-
 // Has the concurrency count for this component been incremented?
 lc.incremented = false;
 
@@ -430,18 +426,18 @@ lc.handleAsEventFromMessageType = function (event, wrappedContext) {
 // If an uncaught exception bubbles up from whatever the underlying handler
 // does, then we still need to clean up Lambda Complex items such as the
 // concurrency count, and also end this as a failure.
-process.once('uncaughtException', function (error) {
-  if (lc.handleUncaughtException) {
-    console.error(util.format(
-      'Uncaught exception: %s',
-      error.stack || error
-    ));
-    lc.wrappedContext.fail(error);
-  }
-  else {
-    throw error;
-  }
-});
+//
+// Expose the function we're using so that it can be removed from the process
+// uncaught exception listener during testing.
+lc.handleUncaughtException = function (error) {
+  console.error(util.format(
+    'Uncaught exception: %s',
+    error.stack || error
+  ));
+  lc.wrappedContext.fail(error);
+}
+
+process.once('uncaughtException', lc.handleUncaughtException);
 
 // ---------------------------------------------------------------------------
 // Export the function package and wrapped handle function.

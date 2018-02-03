@@ -372,7 +372,7 @@ describe('lib/deploy/cloudFormationUtilities', function () {
         tags: applicationConfig.deployment.tags,
         progressCheckIntervalInSeconds: 10,
         priorInstance: cloudFormationDeploy.priorInstance.DELETE,
-        onFailure: cloudFormationDeploy.onFailure.DELETE
+        onDeployFailure: cloudFormationDeploy.onDeployFailure.DELETE
       });
     });
 
@@ -395,7 +395,7 @@ describe('lib/deploy/cloudFormationUtilities', function () {
         tags: applicationConfig.deployment.tags,
         progressCheckIntervalInSeconds: 10,
         priorInstance: cloudFormationDeploy.priorInstance.DO_NOTHING,
-        onFailure: cloudFormationDeploy.onFailure.DELETE
+        onDeployFailure: cloudFormationDeploy.onDeployFailure.DELETE
       });
     });
 
@@ -418,7 +418,7 @@ describe('lib/deploy/cloudFormationUtilities', function () {
         tags: applicationConfig.deployment.tags,
         progressCheckIntervalInSeconds: 10,
         priorInstance: cloudFormationDeploy.priorInstance.DELETE,
-        onFailure: cloudFormationDeploy.onFailure.DO_NOTHING
+        onDeployFailure: cloudFormationDeploy.onDeployFailure.DO_NOTHING
       });
     });
   });
