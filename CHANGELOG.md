@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.0
+
+  * Deal with the changes in NPM since the last update, particularly local
+packages now installing as symlinks rather than being copied into place.
+
 ## 0.6.0
 
   * Rename and export Grunt tasks.
